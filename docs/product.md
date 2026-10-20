@@ -73,7 +73,16 @@ rancher-tui automates Kubernetes cluster deployment on cloud infrastructure. It 
 
 ## Version History
 
-### v0.5+ (Current)
+### v0.5.0 — rancher-tui rebrand (2026-10-20, Current)
+- Renamed project/module/binary `rancher-saddle` → `rancher-tui`
+- Astronvim/Tornado-style **dashboard** home screen (`StateDashboard`, now the initial state)
+- **nvim-style keybinding/command engine** (`internal/tui/keymap`): leader = space, `j/k`,
+  `gg/G`, `:` command mode, `/` search, which-key popup
+- **Harvester orchestrator** and **Vagrant/libvirt provider** scaffolded (config, validation,
+  form fields, registry wiring; install generation not implemented yet)
+- Phase 1 of the broader transformation — see `feats/rancher-tui-transformation.md`
+
+### v0.4.x (earlier)
 - AMI catalog management (`amis.yaml` with 36 default entries)
 - Rancher upgrade from TUI (`u` key)
 - Keybinding remap: `x` = delete, `Ctrl+A` = AMIs
@@ -115,8 +124,17 @@ rancher-tui automates Kubernetes cluster deployment on cloud infrastructure. It 
 
 ## Roadmap
 
+Phased transformation into a TUI for the whole Rancher product family
+(see `feats/rancher-tui-transformation.md`):
+
+- [x] **Phase 1:** rebrand to rancher-tui, dashboard home screen, nvim-style command engine,
+      Harvester + Vagrant/libvirt scaffolding
+- [ ] **Phase 2:** full Harvester installs — cloud and local via Vagrant/libvirt
+      (see `feats/2-harvester-vagrant.md`)
+- [ ] Longhorn distributed storage management
+- [ ] Observability stack (Rancher monitoring / Prometheus, Grafana)
+- [ ] Production vs. test environment presets
 - [ ] Error status for resumable deploys (continue after partial failure)
 - [ ] New cloud providers (Azure, GCP, vSphere)
-- [ ] Monitoring stack deployment (Prometheus, Grafana)
 - [ ] Cluster scaling (add/remove nodes post-deploy)
 - [ ] Import existing clusters

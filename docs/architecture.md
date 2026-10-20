@@ -61,17 +61,21 @@ internal/
 │   └── renderer.go   # Render, RenderString, RenderWithFuncs
 ├── orchestrators/
 │   ├── rke2/         # RKE2 orchestrator + Ansible templates
-│   └── k3s/          # K3s orchestrator + Ansible templates
+│   ├── k3s/          # K3s orchestrator + Ansible templates
+│   └── harvester/    # Harvester orchestrator (scaffold: config/validation only)
 ├── providers/
-│   └── aws/          # AWS provider + Terraform templates
-│       ├── config.go # AWSConfig with FromMap (handles int/float64)
-│       └── provider.go # GenerateInfrastructure, GetOutputs
+│   ├── aws/          # AWS provider + Terraform templates
+│   │   ├── config.go # AWSConfig with FromMap (handles int/float64)
+│   │   └── provider.go # GenerateInfrastructure, GetOutputs
+│   └── vagrant/      # Vagrant/libvirt local provider (scaffold)
 ├── tui/              # Terminal UI (Bubbletea)
 │   ├── root.go       # State machine, layout manager
 │   ├── header.go     # Header bar
 │   ├── footer.go     # Footer with live log panel
+│   ├── keymap/       # nvim-style key-sequence resolver (pure logic) + which-key
 │   └── views/        # View components
 │       ├── messages.go      # AppState enum, message types
+│       ├── dashboard.go     # Astronvim-style home screen
 │       ├── clusterlist.go   # Cluster table with auto-refresh
 │       ├── createform.go    # 19-field cluster creation form
 │       ├── deletemodal.go   # Delete confirmation + tofu destroy
@@ -168,8 +172,9 @@ States defined in `internal/tui/views/messages.go`:
 
 | State | View | Entry |
 |---|---|---|
-| `StateClusterList` | Cluster table + optional log panel | Default / after operations |
-| `StateCreateForm` | 19-field creation form | `n` / `c` key |
+| `StateDashboard` | Astronvim-style home screen (banner + action menu) | Default / `esc` from any view |
+| `StateClusterList` | Cluster table + optional log panel | From dashboard / after operations |
+| `StateCreateForm` | Cluster creation form | `n` / `c` key |
 | `StateDeleteConfirm` | Confirmation modal | `x` key |
 | `StateCredentialsList` | Credentials table | `Ctrl+X` |
 | `StateCredentialsForm` | Credentials editor | From credentials list |
@@ -179,6 +184,10 @@ States defined in `internal/tui/views/messages.go`:
 | `StateAMIsForm` | AMI editor | From AMI list |
 | `StateUpgradeForm` | Rancher upgrade form | `u` key |
 | `StateHelp` | Help overlay | `?` key |
+
+`StateDashboard` is the initial state. Key input is also fed through the nvim-style
+resolver in `internal/tui/keymap/` (leader = space, `j/k`, `gg/G`, `:` command, `/` search,
+which-key popup), which maps key sequences to stable `CommandID`s decoupled from bubbletea.
 
 Layout: Header (2 lines) + Content (remaining) + Footer (3 lines). Log panel takes 33% when active.
 

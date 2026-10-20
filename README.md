@@ -4,9 +4,12 @@ Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS
 
 ## Features
 
+- **Astronvim-style Dashboard** - ASCII-banner home screen with a centered action menu and recent-cluster summary
+- **nvim-style Keybindings** - Leader key (space), `j/k` navigation, `gg/G`, `:` command / `/` search modes, which-key popup
 - **Interactive Fullscreen TUI** - Bubbletea-based terminal interface with live log panel
 - **AWS EC2 Deployment** - Automated multi-node instance provisioning with OpenTofu
 - **RKE2 & K3s Support** - Choose between production-grade RKE2 or lightweight K3s
+- **Harvester & Vagrant (scaffolded)** - Harvester HCI orchestrator and a Vagrant/libvirt local provider are wired in; full install flows land in a later phase
 - **Rancher Management** - Deploy Rancher (standard or Prime) with configurable bootstrap password
 - **Multi-Cluster Management** - Create, monitor, and delete clusters independently
 - **Live Deployment Logs** - Real-time log viewer occupying 33% of the screen
@@ -49,14 +52,29 @@ go build -o rancher-tui
 
 The TUI provides a fullscreen experience with:
 
+- **Dashboard** - The home screen: ASCII banner, action menu (Clusters, Create, Credentials, Profiles, AMIs, Quit) and a recent-cluster summary. `esc` from any view returns here.
 - **Cluster List** - Table showing all clusters with name, status, nodes, provider, region, Rancher URL, and age
-- **Create Form** - 19-field form for full cluster configuration
+- **Create Form** - Full cluster configuration form
 - **Live Logs** - Press Enter on a cluster to show real-time deployment logs (33% of screen)
 - **Delete** - Press `x` to destroy infrastructure and remove cluster
 - **Upgrade** - Press `u` to upgrade Rancher on a running cluster
 - **Auto-refresh** - Cluster status and logs update every second
 
-#### TUI Keybindings
+#### nvim-style Keybindings
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` (or `↓`/`↑`) | Move down / up |
+| `gg` / `G` | Jump to top / bottom |
+| `enter` | Select / open |
+| `esc` | Back to dashboard |
+| `<space>` (leader) | Open which-key popup |
+| `:` | Command mode |
+| `/` | Search |
+| `?` | Toggle help |
+| `q` / `Ctrl+C` | Quit |
+
+#### Cluster-list Keybindings
 
 | Key | Action |
 |-----|--------|
@@ -68,8 +86,6 @@ The TUI provides a fullscreen experience with:
 | `Ctrl+X` | Manage credentials |
 | `Ctrl+P` | Manage profiles |
 | `Ctrl+A` | AMI catalog |
-| `?` | Help |
-| `q` / `Ctrl+C` | Quit |
 
 #### Create Form Fields
 
@@ -164,6 +180,19 @@ When **standard Rancher** (default):
 | `amis.yaml` | AMI catalog - distro/region/AMI-ID mappings |
 | `clusters/<name>/` | Per-cluster build directory (Terraform state, playbooks) |
 | `logs/<name>.log` | Per-cluster deployment/deletion logs |
+
+## Roadmap
+
+rancher-tui is evolving from a RKE2/K3s + Rancher deployer into a TUI for the whole
+Rancher product family. The work is phased:
+
+- **Phase 1 (done):** rebrand to rancher-tui, Astronvim-style dashboard home screen,
+  nvim-style keybinding/command engine, and Harvester + Vagrant/libvirt scaffolding.
+- **Next:** full Harvester installs (cloud + local via Vagrant/libvirt), Longhorn,
+  and an observability stack; production vs. test environment presets.
+
+See `feats/rancher-tui-transformation.md` for the detailed plan and `feats/2-harvester-vagrant.md`
+for the Harvester design.
 
 ## Documentation
 

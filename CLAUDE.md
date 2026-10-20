@@ -2,7 +2,10 @@
 
 ## Project Overview
 
-Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS EC2.
+TUI for creating and managing the Rancher product family (Rancher, Harvester, Longhorn,
+observability, RKE2, K3s) across cloud and local environments. Today it deploys RKE2/K3s
+clusters with Rancher on AWS EC2; Harvester (cloud + local via Vagrant/libvirt) and other
+products are being added incrementally — see `feats/rancher-tui-transformation.md`.
 Tech stack: Go 1.24, Bubbletea TUI, OpenTofu IaC, Ansible config management, AWS provider.
 
 ## Build & Test
@@ -42,9 +45,12 @@ make clean          # remove binary + coverage files
 | `internal/generator/` | Go `text/template` renderer for Terraform + Ansible |
 | `internal/orchestrators/rke2/` | RKE2 orchestrator: playbook + inventory generation |
 | `internal/orchestrators/k3s/` | K3s orchestrator: playbook + inventory generation |
+| `internal/orchestrators/harvester/` | Harvester orchestrator (scaffold: config/validation, generation not implemented) |
 | `internal/providers/aws/` | AWS provider: Terraform generation, EC2 outputs |
+| `internal/providers/vagrant/` | Vagrant/libvirt local provider (scaffold: config/validation, generation not implemented) |
 | `internal/tui/` | Bubbletea state machine, layout, header/footer |
-| `internal/tui/views/` | TUI views: cluster list, forms, modals |
+| `internal/tui/keymap/` | nvim-style key-sequence resolution engine (pure logic, no bubbletea dep) + which-key |
+| `internal/tui/views/` | TUI views: dashboard, cluster list, forms, modals |
 | `internal/upgrade/` | Rancher upgrade runner (Ansible-based) |
 | `internal/workflow/` | Deployment orchestration (`ModularRunner`) |
 | `internal/utils/` | Zap logger initialization |
@@ -52,7 +58,9 @@ make clean          # remove binary + coverage files
 ## Key Patterns
 
 - **Provider/Orchestrator interfaces** in `internal/core/interfaces.go` — extensible via registry
-- **Bubbletea state machine** in `internal/tui/root.go` — 13 states defined in `views/messages.go`
+- **Bubbletea state machine** in `internal/tui/root.go` — 14 states defined in `views/messages.go` (initial state is `StateDashboard`)
+- **Dashboard home screen** in `internal/tui/views/dashboard.go` — Astronvim-style banner + action menu; pure `dashMenu` nav logic is unit-tested
+- **nvim-style command engine** in `internal/tui/keymap/` — pure-logic `Resolver` (leader=space, `j/k`, `gg/G`, `:`, `/`, which-key); kept free of bubbletea so sequence resolution is unit-testable
 - **Template rendering** via `internal/generator/renderer.go` — `Render`, `RenderString`, `RenderWithFuncs`
 - **Background goroutines** for deploy/delete/upgrade — non-blocking TUI with log streaming
 - **Auto-refresh** every 1 second in cluster list
