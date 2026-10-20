@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Felipalds/rancher-saddle/internal/tui"
+	"github.com/Felipalds/rancher-tui/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

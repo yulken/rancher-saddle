@@ -1,15 +1,15 @@
 package config
 
 import (
-	"github.com/Felipalds/rancher-saddle/internal/core"
-	"github.com/Felipalds/rancher-saddle/internal/model"
+	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/model"
 )
 
 // FromLegacyConfig converts old model.Config to new config.Config
 func FromLegacyConfig(oldCfg *model.Config) *Config {
 	cfg := &Config{
 		Provider:           string(core.ProviderAWS),
-		Orchestrator:       oldCfg.KubernetesDistribution,  // Dynamic based on selection
+		Orchestrator:       oldCfg.KubernetesDistribution, // Dynamic based on selection
 		NodePrefix:         oldCfg.NodePrefix,
 		InstanceCount:      oldCfg.InstanceCount,
 		SSHKeyName:         oldCfg.SSHKeyName,

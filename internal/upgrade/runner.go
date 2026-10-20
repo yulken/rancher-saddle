@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/Felipalds/rancher-saddle/internal/generator"
+	"github.com/Felipalds/rancher-tui/internal/generator"
 )
 
 // UpgradeConfig holds all parameters needed to upgrade Rancher on a cluster.

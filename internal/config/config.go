@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/Felipalds/rancher-saddle/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
 // Config holds the dynamic application configuration for deploying Kubernetes clusters
 type Config struct {
 	// Provider and Orchestrator selection
-	Provider     string `json:"provider"`      // "aws", "azure", "gcp", "vsphere"
-	Orchestrator string `json:"orchestrator"`  // "rke2", "k3s", "minikube", "kubeadm"
+	Provider     string `json:"provider"`     // "aws", "azure", "gcp", "vsphere"
+	Orchestrator string `json:"orchestrator"` // "rke2", "k3s", "minikube", "kubeadm"
 
 	// Common cluster settings
 	ClusterName       string `json:"cluster_name"`

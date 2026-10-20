@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Felipalds/rancher-saddle/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -12,17 +12,17 @@ const sidebarWidth = 25
 
 // SidebarModel represents the left sidebar navigation
 type SidebarModel struct {
-	activeView  int // 1=Clusters, 2=Create, 3=Delete
+	activeView   int // 1=Clusters, 2=Create, 3=Delete
 	clusterCount int
-	connected   bool
+	connected    bool
 }
 
 // NewSidebarModel creates a new sidebar
 func NewSidebarModel() SidebarModel {
 	return SidebarModel{
-		activeView:  1,
+		activeView:   1,
 		clusterCount: 0,
-		connected:   true,
+		connected:    true,
 	}
 }
 

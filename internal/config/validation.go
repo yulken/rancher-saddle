@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Felipalds/rancher-saddle/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
 // ExpandPath expands ~ to home directory and resolves relative paths

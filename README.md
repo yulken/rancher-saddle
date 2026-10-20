@@ -1,4 +1,4 @@
-# Rancher Saddle
+# rancher-tui
 
 Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS EC2 using OpenTofu and Ansible, featuring an interactive fullscreen TUI.
 
@@ -34,9 +34,9 @@ Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS
 ## Installation
 
 ```bash
-git clone https://github.com/Felipalds/rancher-saddle.git
-cd rancher-saddle
-go build -o saddle
+git clone https://github.com/Felipalds/rancher-tui.git
+cd rancher-tui
+go build -o rancher-tui
 ```
 
 ## Usage
@@ -44,7 +44,7 @@ go build -o saddle
 ### Fullscreen TUI (Recommended)
 
 ```bash
-./saddle
+./rancher-tui
 ```
 
 The TUI provides a fullscreen experience with:
@@ -99,22 +99,22 @@ The TUI provides a fullscreen experience with:
 
 ```bash
 # Create cluster (opens TUI form)
-./saddle create my-cluster
+./rancher-tui create my-cluster
 
 # List all clusters
-./saddle list
+./rancher-tui list
 
 # Delete cluster (with confirmation)
-./saddle delete my-cluster
+./rancher-tui delete my-cluster
 
 # Delete without confirmation
-./saddle delete my-cluster --force
+./rancher-tui delete my-cluster --force
 
 # List available providers
-./saddle list-providers
+./rancher-tui list-providers
 
 # List available orchestrators
-./saddle list-orchestrators
+./rancher-tui list-orchestrators
 ```
 
 ## How It Works

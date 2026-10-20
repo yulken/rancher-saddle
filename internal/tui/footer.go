@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Felipalds/rancher-saddle/internal/tui/views"
+	"github.com/Felipalds/rancher-tui/internal/tui/views"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -18,18 +18,17 @@ type FooterModel struct {
 
 // keyMap defines keybindings for each state
 type keyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	Enter    key.Binding
-	Back     key.Binding
-	New      key.Binding
-	Delete   key.Binding
-	Refresh  key.Binding
-	Upgrade  key.Binding
-	Help     key.Binding
-	Quit     key.Binding
+	Up      key.Binding
+	Down    key.Binding
+	Enter   key.Binding
+	Back    key.Binding
+	New     key.Binding
+	Delete  key.Binding
+	Refresh key.Binding
+	Upgrade key.Binding
+	Help    key.Binding
+	Quit    key.Binding
 }
-
 
 var (
 	clusterListKeys = keyMap{

@@ -1,7 +1,7 @@
 package views
 
 import (
-	"github.com/Felipalds/rancher-saddle/internal/credentials"
+	"github.com/Felipalds/rancher-tui/internal/credentials"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

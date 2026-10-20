@@ -53,10 +53,10 @@ func TestDeployConfig_Image(t *testing.T) {
 
 func TestBuildRunArgs(t *testing.T) {
 	tests := []struct {
-		name          string
-		cfg           DeployConfig
-		wantContains  []string
-		wantAbsent    []string
+		name         string
+		cfg          DeployConfig
+		wantContains []string
+		wantAbsent   []string
 	}{
 		{
 			name: "community defaults",

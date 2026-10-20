@@ -1,7 +1,7 @@
 package rke2
 
 import (
-	"github.com/Felipalds/rancher-saddle/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
 // RKE2Config holds RKE2-specific configuration

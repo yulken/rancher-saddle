@@ -2,7 +2,7 @@
 
 ## Overview
 
-rancher-saddle follows a **Provider/Orchestrator** pattern. Cloud providers (AWS) handle infrastructure provisioning via OpenTofu templates. Orchestrators (RKE2, K3s) handle Kubernetes deployment via Ansible playbooks. A thread-safe registry connects them at runtime.
+rancher-tui follows a **Provider/Orchestrator** pattern. Cloud providers (AWS) handle infrastructure provisioning via OpenTofu templates. Orchestrators (RKE2, K3s) handle Kubernetes deployment via Ansible playbooks. A thread-safe registry connects them at runtime.
 
 ```
 +-------------------------------------+

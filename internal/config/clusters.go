@@ -16,19 +16,19 @@ type ClustersConfig struct {
 
 // ClusterConfig represents a single cluster configuration
 type ClusterConfig struct {
-	Provider   ProviderSection    `yaml:"provider"`
-	Kubernetes KubernetesSection  `yaml:"kubernetes"`
-	Rancher    RancherSection     `yaml:"rancher"`
-	SSH        SSHSection         `yaml:"ssh"`
-	Cluster    ClusterSection     `yaml:"cluster"`
-	Status     string             `yaml:"status,omitempty"`
-	CreatedAt  time.Time          `yaml:"created_at,omitempty"`
-	UpdatedAt  time.Time          `yaml:"updated_at,omitempty"`
-	BuildDir   string             `yaml:"build_dir,omitempty"`
-	InstanceIPs   []string        `yaml:"instance_ips,omitempty"`
-	InstanceDNS   []string        `yaml:"instance_dns,omitempty"`
-	RancherURL    string          `yaml:"rancher_url,omitempty"`
-	LastError     string          `yaml:"last_error,omitempty"`
+	Provider    ProviderSection   `yaml:"provider"`
+	Kubernetes  KubernetesSection `yaml:"kubernetes"`
+	Rancher     RancherSection    `yaml:"rancher"`
+	SSH         SSHSection        `yaml:"ssh"`
+	Cluster     ClusterSection    `yaml:"cluster"`
+	Status      string            `yaml:"status,omitempty"`
+	CreatedAt   time.Time         `yaml:"created_at,omitempty"`
+	UpdatedAt   time.Time         `yaml:"updated_at,omitempty"`
+	BuildDir    string            `yaml:"build_dir,omitempty"`
+	InstanceIPs []string          `yaml:"instance_ips,omitempty"`
+	InstanceDNS []string          `yaml:"instance_dns,omitempty"`
+	RancherURL  string            `yaml:"rancher_url,omitempty"`
+	LastError   string            `yaml:"last_error,omitempty"`
 }
 
 // ProviderSection contains cloud provider configuration

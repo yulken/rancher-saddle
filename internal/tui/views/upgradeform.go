@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/Felipalds/rancher-saddle/internal/config"
-	"github.com/Felipalds/rancher-saddle/internal/upgrade"
+	"github.com/Felipalds/rancher-tui/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/upgrade"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

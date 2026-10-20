@@ -32,7 +32,7 @@ type FormField struct {
 	Description string
 	Required    bool
 	Default     interface{}
-	Type        string // "string", "int", "bool", "select"
+	Type        string   // "string", "int", "bool", "select"
 	Options     []string // For select type
 }
 

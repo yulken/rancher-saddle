@@ -3,7 +3,7 @@ package views
 import (
 	"fmt"
 
-	"github.com/Felipalds/rancher-saddle/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,11 +11,11 @@ import (
 
 // ProfilesFormModel represents the profile creation/edit form
 type ProfilesFormModel struct {
-	width      int
-	height     int
-	inputs     []textinput.Model
-	focusIndex int
-	editMode   bool
+	width       int
+	height      int
+	inputs      []textinput.Model
+	focusIndex  int
+	editMode    bool
 	profileName string
 }
 

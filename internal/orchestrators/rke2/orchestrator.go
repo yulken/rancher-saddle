@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Felipalds/rancher-saddle/internal/core"
-	"github.com/Felipalds/rancher-saddle/internal/generator"
+	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/generator"
 )
 
 // Orchestrator implements the RKE2 Kubernetes orchestrator

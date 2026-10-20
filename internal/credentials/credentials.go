@@ -17,9 +17,9 @@ type CloudCredentials struct {
 
 // AWSCredential represents AWS access credentials
 type AWSCredential struct {
-	Name         string `yaml:"name"`
-	AccessKey    string `yaml:"access_key"`
-	SecretKey    string `yaml:"secret_key"`
+	Name          string `yaml:"name"`
+	AccessKey     string `yaml:"access_key"`
+	SecretKey     string `yaml:"secret_key"`
 	DefaultRegion string `yaml:"default_region,omitempty"`
 }
 

@@ -3,7 +3,7 @@ package views
 import (
 	"fmt"
 
-	"github.com/Felipalds/rancher-saddle/internal/credentials"
+	"github.com/Felipalds/rancher-tui/internal/credentials"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -253,9 +253,9 @@ func (m *CredentialsFormModel) updateInputs(msg tea.Msg) tea.Cmd {
 func (m CredentialsFormModel) saveCredential() tea.Cmd {
 	return func() tea.Msg {
 		cred := credentials.AWSCredential{
-			Name:         m.inputs[0].Value(),
-			AccessKey:    m.inputs[1].Value(),
-			SecretKey:    m.inputs[2].Value(),
+			Name:          m.inputs[0].Value(),
+			AccessKey:     m.inputs[1].Value(),
+			SecretKey:     m.inputs[2].Value(),
 			DefaultRegion: m.inputs[3].Value(),
 		}
 

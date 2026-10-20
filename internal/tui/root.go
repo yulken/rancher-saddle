@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 
-	"github.com/Felipalds/rancher-saddle/internal/tui/views"
+	"github.com/Felipalds/rancher-tui/internal/tui/views"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -253,7 +253,7 @@ func (m RootModel) View() string {
 
 	// Build the layout
 	header := m.header.View()
-	headerHeight := 2 // header + newline
+	headerHeight := 2    // header + newline
 	footerBarHeight := 3 // border + 1 line + padding
 
 	// Get content from active view

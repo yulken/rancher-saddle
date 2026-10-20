@@ -3,11 +3,11 @@ package tui
 import (
 	"fmt"
 
-	"github.com/Felipalds/rancher-saddle/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/charmbracelet/lipgloss"
 )
 
-const appVersion = "v0.4.0"
+const appVersion = "v0.5.0"
 
 // HeaderModel represents the persistent header
 type HeaderModel struct {
@@ -72,7 +72,7 @@ func (h HeaderModel) View() string {
 		BorderBottom(true)
 
 	// Build header content
-	title := titleStyle.Render("🚀 Kubernetes Helper")
+	title := titleStyle.Render("🚀 rancher-tui")
 	version := versionStyle.Render(" " + appVersion)
 
 	var statusIcon string

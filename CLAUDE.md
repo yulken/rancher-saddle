@@ -1,4 +1,4 @@
-# CLAUDE.md — LLM Instructions for rancher-saddle
+# CLAUDE.md — LLM Instructions for rancher-tui
 
 ## Project Overview
 
@@ -8,7 +8,7 @@ Tech stack: Go 1.24, Bubbletea TUI, OpenTofu IaC, Ansible config management, AWS
 ## Build & Test
 
 ```bash
-make build          # go build -o corral
+make build          # go build -o rancher-tui
 make test           # go test ./...
 make test-cover     # go test -coverprofile + go tool cover
 make test-verbose   # go test -v ./...

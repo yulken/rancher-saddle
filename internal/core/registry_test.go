@@ -13,15 +13,15 @@ type mockProvider struct {
 	name ProviderType
 }
 
-func (m *mockProvider) Name() ProviderType                        { return m.name }
-func (m *mockProvider) Validate(map[string]interface{}) error     { return nil }
+func (m *mockProvider) Name() ProviderType                    { return m.name }
+func (m *mockProvider) Validate(map[string]interface{}) error { return nil }
 func (m *mockProvider) GenerateInfrastructure(_ context.Context, _ map[string]interface{}, _ string) error {
 	return nil
 }
 func (m *mockProvider) GetOutputs(_ context.Context, _ string) (*InfrastructureOutputs, error) {
 	return nil, nil
 }
-func (m *mockProvider) GetRequiredFields() []FormField         { return nil }
+func (m *mockProvider) GetRequiredFields() []FormField           { return nil }
 func (m *mockProvider) GetDefaultConfig() map[string]interface{} { return nil }
 
 // mockOrchestrator implements the Orchestrator interface for testing.
@@ -29,17 +29,17 @@ type mockOrchestrator struct {
 	name OrchestratorType
 }
 
-func (m *mockOrchestrator) Name() OrchestratorType                    { return m.name }
-func (m *mockOrchestrator) Validate(map[string]interface{}) error     { return nil }
+func (m *mockOrchestrator) Name() OrchestratorType                { return m.name }
+func (m *mockOrchestrator) Validate(map[string]interface{}) error { return nil }
 func (m *mockOrchestrator) GeneratePlaybook(_ context.Context, _ map[string]interface{}, _ string) error {
 	return nil
 }
 func (m *mockOrchestrator) GenerateInventory(_ context.Context, _ *InfrastructureOutputs, _ map[string]interface{}, _ string) error {
 	return nil
 }
-func (m *mockOrchestrator) GetRequiredFields() []FormField         { return nil }
+func (m *mockOrchestrator) GetRequiredFields() []FormField           { return nil }
 func (m *mockOrchestrator) GetDefaultConfig() map[string]interface{} { return nil }
-func (m *mockOrchestrator) GetModules() []Module                   { return nil }
+func (m *mockOrchestrator) GetModules() []Module                     { return nil }
 
 func TestRegistry_RegisterAndGetProvider(t *testing.T) {
 	r := NewRegistry()

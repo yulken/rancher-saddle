@@ -1,4 +1,4 @@
-module github.com/Felipalds/rancher-saddle
+module github.com/Felipalds/rancher-tui
 
 go 1.24.9
 

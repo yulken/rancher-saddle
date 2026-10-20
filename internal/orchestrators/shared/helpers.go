@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Felipalds/rancher-saddle/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
 // SharedDir returns the path to the shared orchestrator directory

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Felipalds/rancher-saddle/internal/model"
+	"github.com/Felipalds/rancher-tui/internal/model"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -31,8 +31,8 @@ type Model struct {
 	quitting   bool
 
 	// NEW: For distribution selection
-	distributionCursor int  // 0=RKE2, 1=K3s
-	selectingDistribution bool  // True when in distribution selection mode
+	distributionCursor    int  // 0=RKE2, 1=K3s
+	selectingDistribution bool // True when in distribution selection mode
 }
 
 func NewModel(cfg *model.Config) Model {
@@ -43,9 +43,9 @@ func NewModel(cfg *model.Config) Model {
 	}
 
 	m := Model{
-		inputs: make([]textinput.Model, 14), // Increased to 14 for version field
-		config: cfg,
-		distributionCursor: distCursor,
+		inputs:                make([]textinput.Model, 14), // Increased to 14 for version field
+		config:                cfg,
+		distributionCursor:    distCursor,
 		selectingDistribution: false,
 	}
 

@@ -214,10 +214,10 @@ func TestFromModernConfig_ImageTagAndDebug(t *testing.T) {
 		Provider:     "aws",
 		Orchestrator: "rke2",
 		OrchestratorConfig: map[string]interface{}{
-			"rancher_version":            "2.13.3",
-			"deploy_rancher":             true,
-			"rancher_image_tag":          "v0.0.0-test-abc123.1",
-			"rancher_debug":              true,
+			"rancher_version":   "2.13.3",
+			"deploy_rancher":    true,
+			"rancher_image_tag": "v0.0.0-test-abc123.1",
+			"rancher_debug":     true,
 		},
 	}
 

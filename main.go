@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Felipalds/rancher-saddle/cmd"
-	"github.com/Felipalds/rancher-saddle/internal/cluster"
-	"github.com/Felipalds/rancher-saddle/internal/config"
-	"github.com/Felipalds/rancher-saddle/internal/core"
-	"github.com/Felipalds/rancher-saddle/internal/model"
-	dockerorch "github.com/Felipalds/rancher-saddle/internal/orchestrators/docker"
-	"github.com/Felipalds/rancher-saddle/internal/orchestrators/k3s"
-	"github.com/Felipalds/rancher-saddle/internal/orchestrators/rke2"
-	"github.com/Felipalds/rancher-saddle/internal/providers/aws"
+	"github.com/Felipalds/rancher-tui/cmd"
+	"github.com/Felipalds/rancher-tui/internal/cluster"
+	"github.com/Felipalds/rancher-tui/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/model"
+	dockerorch "github.com/Felipalds/rancher-tui/internal/orchestrators/docker"
+	"github.com/Felipalds/rancher-tui/internal/orchestrators/k3s"
+	"github.com/Felipalds/rancher-tui/internal/orchestrators/rke2"
+	"github.com/Felipalds/rancher-tui/internal/providers/aws"
 	"github.com/spf13/cobra"
 )
 
@@ -32,9 +32,9 @@ func main() {
 	var force bool
 
 	var rootCmd = &cobra.Command{
-		Use:   "corral",
-		Short: "Automate Kubernetes cluster deployment on multiple cloud providers",
-		Long:  "A modular tool to automate the deployment and management of Kubernetes clusters across AWS, Azure, GCP, and vSphere using RKE2, K3s, Minikube, or Kubeadm",
+		Use:   "rancher-tui",
+		Short: "A TUI for creating and managing the Rancher product family",
+		Long:  "rancher-tui is a terminal UI for creating and managing Rancher, Harvester, Longhorn, RKE2, K3s and related products across cloud and local environments",
 		Run: func(c *cobra.Command, args []string) {
 			// Launch the fullscreen TUI application
 			cmd.LaunchTUI()
