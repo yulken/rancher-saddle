@@ -70,16 +70,21 @@ func (m HelpModel) View() string {
 	// Build content
 	s.WriteString(titleStyle.Render("⌨  Keyboard Shortcuts") + "\n")
 
-	// Navigation section
-	s.WriteString(sectionStyle.Render("Navigation") + "\n")
-	s.WriteString(keyStyle.Render("  j/k, ↓/↑  ") + descStyle.Render("Move up/down") + "\n")
-	s.WriteString(keyStyle.Render("  1-3       ") + descStyle.Render("Quick jump to view") + "\n")
+	// Navigation section (nvim-style)
+	s.WriteString(sectionStyle.Render("Navigation (nvim-style)") + "\n")
+	s.WriteString(keyStyle.Render("  j/k, ↓/↑  ") + descStyle.Render("Move down/up") + "\n")
+	s.WriteString(keyStyle.Render("  gg / G    ") + descStyle.Render("Jump to top / bottom") + "\n")
 	s.WriteString(keyStyle.Render("  enter     ") + descStyle.Render("Select/Open") + "\n")
-	s.WriteString(keyStyle.Render("  esc       ") + descStyle.Render("Back/Cancel") + "\n")
+	s.WriteString(keyStyle.Render("  esc       ") + descStyle.Render("Back to dashboard") + "\n")
+
+	// Command section
+	s.WriteString(sectionStyle.Render("Command") + "\n")
+	s.WriteString(keyStyle.Render("  <space>   ") + descStyle.Render("Leader (which-key popup)") + "\n")
+	s.WriteString(keyStyle.Render("  :         ") + descStyle.Render("Command mode") + "\n")
+	s.WriteString(keyStyle.Render("  /         ") + descStyle.Render("Search") + "\n")
 
 	// Actions section
 	s.WriteString(sectionStyle.Render("Actions") + "\n")
-	s.WriteString(keyStyle.Render("  space     ") + descStyle.Render("Select item (multi-select)") + "\n")
 	s.WriteString(keyStyle.Render("  d         ") + descStyle.Render("Delete cluster") + "\n")
 	s.WriteString(keyStyle.Render("  l         ") + descStyle.Render("View logs") + "\n")
 	s.WriteString(keyStyle.Render("  r         ") + descStyle.Render("Refresh now") + "\n")

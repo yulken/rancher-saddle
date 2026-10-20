@@ -15,6 +15,7 @@ type RootModel struct {
 	header          HeaderModel
 	footer          FooterModel
 	help            HelpModel
+	dashboard       views.DashboardModel
 	clusterList     views.ClusterListModel
 	createForm      views.CreateFormModel
 	deleteModal     views.DeleteModalModel
@@ -31,12 +32,13 @@ type RootModel struct {
 // NewRootModel creates a new root model with initial state
 func NewRootModel() RootModel {
 	return RootModel{
-		state:           views.StateClusterList,
+		state:           views.StateDashboard,
 		width:           80,
 		height:          24,
 		header:          NewHeaderModel(),
 		footer:          NewFooterModel(),
 		help:            NewHelpModel(),
+		dashboard:       views.NewDashboardModel(),
 		clusterList:     views.NewClusterListModel(),
 		createForm:      views.NewCreateFormModel(),
 		deleteModal:     views.NewDeleteModalModel(),
@@ -54,6 +56,7 @@ func NewRootModel() RootModel {
 // Init initializes the root model
 func (m RootModel) Init() tea.Cmd {
 	return tea.Batch(
+		m.dashboard.Init(),
 		m.clusterList.Init(),
 	)
 }
@@ -78,6 +81,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if contentHeight < 10 {
 			contentHeight = 10
 		}
+		m.dashboard.SetSize(m.width, contentHeight)
 		m.clusterList.SetSize(m.width, contentHeight)
 		m.createForm.SetSize(m.width, contentHeight)
 		m.deleteModal.SetSize(m.width, contentHeight)
@@ -98,8 +102,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "q":
-			// Only quit from cluster list view
-			if m.state == views.StateClusterList {
+			// Quit from the home screens (dashboard and cluster list)
+			if m.state == views.StateDashboard || m.state == views.StateClusterList {
 				return m, tea.Quit
 			}
 
@@ -118,10 +122,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.help.Toggle()
 				return m, nil
 			}
-			// Otherwise, navigate back to cluster list
-			if m.state != views.StateClusterList {
-				m.state = views.StateClusterList
-				return m, m.clusterList.Init()
+			// Otherwise, navigate back to the dashboard home screen
+			if m.state != views.StateDashboard {
+				m.state = views.StateDashboard
+				return m, m.dashboard.Init()
 			}
 		}
 
@@ -142,6 +146,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Initialize the new view
 		switch msg.NewState {
+		case views.StateDashboard:
+			return m, m.dashboard.Init()
 		case views.StateCreateForm:
 			return m, m.createForm.Init()
 		case views.StateDeleteConfirm:
@@ -215,6 +221,8 @@ func (m RootModel) routeUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.state {
+	case views.StateDashboard:
+		m.dashboard, cmd = m.dashboard.Update(msg)
 	case views.StateClusterList:
 		m.clusterList, cmd = m.clusterList.Update(msg)
 	case views.StateCreateForm:
@@ -260,6 +268,9 @@ func (m RootModel) View() string {
 	var content string
 	var footer string
 	switch m.state {
+	case views.StateDashboard:
+		content = m.dashboard.View()
+		footer = m.footer.ViewForState(m.state)
 	case views.StateClusterList:
 		// Check if logs should be shown
 		if selectedCluster, showLogs := m.clusterList.GetSelectedCluster(); showLogs {

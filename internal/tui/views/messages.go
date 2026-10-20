@@ -17,11 +17,14 @@ const (
 	StateUpgradeForm
 	StateHelp
 	StateQuitting
+	StateDashboard
 )
 
 // String returns the string representation of the state
 func (s AppState) String() string {
 	switch s {
+	case StateDashboard:
+		return "Dashboard"
 	case StateClusterList:
 		return "Cluster List"
 	case StateCreateForm:
@@ -34,6 +37,16 @@ func (s AppState) String() string {
 		return "Credentials"
 	case StateCredentialsForm:
 		return "Edit Credentials"
+	case StateProfilesList:
+		return "Profiles"
+	case StateProfilesForm:
+		return "Edit Profile"
+	case StateAMIsList:
+		return "AMI Catalog"
+	case StateAMIsForm:
+		return "Edit AMI"
+	case StateUpgradeForm:
+		return "Upgrade Rancher"
 	case StateHelp:
 		return "Help"
 	case StateQuitting:

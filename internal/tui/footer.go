@@ -31,6 +31,29 @@ type keyMap struct {
 }
 
 var (
+	dashboardKeys = keyMap{
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "down"),
+		),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "select"),
+		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "help"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("q", "ctrl+c"),
+			key.WithHelp("q", "quit"),
+		),
+	}
+
 	clusterListKeys = keyMap{
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
@@ -364,6 +387,8 @@ func (f FooterModel) ViewForStateWithError(state views.AppState, errMsg string) 
 
 	var km keyMap
 	switch state {
+	case views.StateDashboard:
+		km = dashboardKeys
 	case views.StateClusterList:
 		km = clusterListKeys
 	case views.StateCreateForm:
