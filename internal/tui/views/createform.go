@@ -79,6 +79,9 @@ type CreateFormModel struct {
 	scrollOffset       int
 	showProfileSelect  bool
 	profileSelectIndex int
+
+	// statusMsg surfaces inline notices (e.g. not-yet-implemented selections)
+	statusMsg string
 }
 
 // NewCreateFormModel creates a new simplified creation form
@@ -124,7 +127,7 @@ func (m *CreateFormModel) initFields() {
 		{
 			fieldType: FieldSelect,
 			label:     "Provider",
-			options:   []string{"AWS", "Azure (Coming soon)", "GCP (Coming soon)"},
+			options:   []string{"AWS", "Vagrant (local)", "Azure (Coming soon)", "GCP (Coming soon)"},
 			selected:  0,
 		},
 		// [2] Credentials selection (will be populated when credentials load)
@@ -138,7 +141,7 @@ func (m *CreateFormModel) initFields() {
 		{
 			fieldType: FieldSelect,
 			label:     "Kubernetes Distribution",
-			options:   []string{"RKE2", "K3s"},
+			options:   []string{"RKE2", "K3s", "Harvester (Coming soon)"},
 			selected:  0,
 		},
 		// [4] Cluster Name
@@ -489,6 +492,16 @@ func (m CreateFormModel) Update(msg tea.Msg) (CreateFormModel, tea.Cmd) {
 }
 
 func (m CreateFormModel) handleSubmit() (CreateFormModel, tea.Cmd) {
+	// Guard scaffolded-but-not-implemented selections (Phase 1).
+	provider := m.fields[fieldProvider].options[m.fields[fieldProvider].selected]
+	distro := m.fields[fieldK8sDistro].options[m.fields[fieldK8sDistro].selected]
+	if strings.Contains(provider, "Vagrant") || strings.Contains(distro, "Harvester") ||
+		strings.Contains(provider, "Coming soon") || strings.Contains(distro, "Coming soon") {
+		m.statusMsg = "Harvester / Vagrant support is scaffolded but not implemented yet (coming in a later phase)."
+		return m, nil
+	}
+	m.statusMsg = ""
+
 	if m.isDockerMode() {
 		return m.handleDockerSubmit()
 	}
@@ -925,6 +938,11 @@ func (m CreateFormModel) View() string {
 
 	title := titleStyle.Render("Create New Cluster")
 	content := title + "\n\n"
+
+	if m.statusMsg != "" {
+		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
+		content += statusStyle.Render("⚠ "+m.statusMsg) + "\n\n"
+	}
 
 	// Render all fields
 	for i, field := range m.fields {

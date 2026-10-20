@@ -12,17 +12,19 @@ const (
 	ProviderAzure   ProviderType = "azure"
 	ProviderGCP     ProviderType = "gcp"
 	ProviderVSphere ProviderType = "vsphere"
+	ProviderVagrant ProviderType = "vagrant"
 )
 
 // OrchestratorType represents the Kubernetes distribution type
 type OrchestratorType string
 
 const (
-	OrchestratorRKE2     OrchestratorType = "rke2"
-	OrchestratorK3s      OrchestratorType = "k3s"
-	OrchestratorDocker   OrchestratorType = "docker"
-	OrchestratorMinikube OrchestratorType = "minikube"
-	OrchestratorKubeadm  OrchestratorType = "kubeadm"
+	OrchestratorRKE2      OrchestratorType = "rke2"
+	OrchestratorK3s       OrchestratorType = "k3s"
+	OrchestratorDocker    OrchestratorType = "docker"
+	OrchestratorMinikube  OrchestratorType = "minikube"
+	OrchestratorKubeadm   OrchestratorType = "kubeadm"
+	OrchestratorHarvester OrchestratorType = "harvester"
 )
 
 // FormField represents a configuration field for TUI forms
