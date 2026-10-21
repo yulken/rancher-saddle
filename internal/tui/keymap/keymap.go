@@ -43,7 +43,7 @@ const (
 
 // Binding maps an ordered key sequence to a command within a mode.
 type Binding struct {
-	Keys []string  // e.g. {"g","g"} or {LeaderToken,"f","f"}
+	Keys []string // e.g. {"g","g"} or {LeaderToken,"f","f"}
 	ID   CommandID
 	Desc string // which-key description
 	Mode Mode

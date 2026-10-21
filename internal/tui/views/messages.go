@@ -71,3 +71,9 @@ type ClusterDeletedMsg struct {
 type ClusterCreatedMsg struct {
 	ClusterName string
 }
+
+// OpenClusterLogsMsg is emitted by the cluster tree to jump to the cluster list
+// and open the log panel for a specific cluster.
+type OpenClusterLogsMsg struct {
+	ClusterName string
+}

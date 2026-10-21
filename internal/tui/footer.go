@@ -450,8 +450,10 @@ func renderBindings(km keyMap) string {
 	return strings.Join(parts, sep)
 }
 
-// ViewWithLogs renders the footer with deployment logs using 33% of the screen
-func (f FooterModel) ViewWithLogs(clusterName string) string {
+// ViewWithLogs renders the footer with deployment logs using 33% of the screen.
+// notice is an optional transient message (e.g. "copied N lines") shown in the
+// title bar after a copy action.
+func (f FooterModel) ViewWithLogs(clusterName, notice string) string {
 	// Calculate log panel height: 33% of terminal, minimum 6 lines
 	logPanelHeight := f.height / 3
 	if logPanelHeight < 6 {
@@ -483,7 +485,10 @@ func (f FooterModel) ViewWithLogs(clusterName string) string {
 	logs := readLastLines(logPath, logLines)
 
 	title := titleStyle.Render(fmt.Sprintf("Logs: %s", clusterName))
-	helpText := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Faint(true).Render(" • Enter: hide")
+	helpText := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Faint(true).Render(" • y: copy • Enter: hide")
+	if notice != "" {
+		helpText += lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Bold(true).Render("  ✓ " + notice)
+	}
 
 	content := title + helpText + "\n" + logs
 

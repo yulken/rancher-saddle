@@ -5,6 +5,13 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/tui/views"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// focusable panes for the Ctrl+B pane switcher.
+const (
+	paneContent = iota
+	paneTree
 )
 
 // RootModel is the main state machine that routes between different views
@@ -27,6 +34,13 @@ type RootModel struct {
 	amisForm        views.AMIsFormModel
 	upgradeForm     views.UpgradeFormModel
 	ready           bool
+
+	// Explorer tree + pane focus (nvim-style).
+	clusterTree       views.ClusterTreeModel
+	treeVisible       bool
+	focusPane         int
+	leaderPending     bool // space pressed, waiting for the next leader key
+	paneSelectPending bool // ctrl+b pressed, waiting for a direction key
 }
 
 // NewRootModel creates a new root model with initial state
@@ -49,6 +63,8 @@ func NewRootModel() RootModel {
 		amisList:        views.NewAMIsListModel(),
 		amisForm:        views.NewAMIsFormModel(),
 		upgradeForm:     views.NewUpgradeFormModel(),
+		clusterTree:     views.NewClusterTreeModel(),
+		focusPane:       paneContent,
 		ready:           false,
 	}
 }
@@ -92,53 +108,106 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.amisList.SetSize(m.width, contentHeight)
 		m.amisForm.SetSize(m.width, contentHeight)
 		m.upgradeForm.SetSize(m.width, contentHeight)
+		m.clusterTree.SetSize(views.TreeWidth, contentHeight)
 
 		return m, nil
 
 	case tea.KeyMsg:
-		// Global keybindings
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
+		key := msg.String()
 
+		// ctrl+c always quits.
+		if key == "ctrl+c" {
+			return m, tea.Quit
+		}
+
+		// While the help overlay is open it owns the keyboard.
+		if m.help.IsVisible() {
+			if key == "?" || key == "esc" {
+				m.help.Toggle()
+				return m, nil
+			}
+			m.help, cmd = m.help.Update(msg)
+			return m, cmd
+		}
+
+		// Leader (space) sequence: space then 'e' toggles the explorer tree.
+		if m.leaderPending {
+			m.leaderPending = false
+			if key == "e" {
+				cmd = m.toggleTree()
+				return m, cmd
+			}
+			if key == "esc" {
+				return m, nil
+			}
+			// Unknown leader key: ignore and swallow.
+			return m, nil
+		}
+
+		// Pane-select (ctrl+b) then a direction key moves focus between panes.
+		if m.paneSelectPending {
+			m.paneSelectPending = false
+			switch key {
+			case "h", "left", "k", "up":
+				if m.treeVisible {
+					m.setFocus(paneTree)
+				}
+			case "l", "right", "j", "down":
+				m.setFocus(paneContent)
+			}
+			return m, nil
+		}
+
+		// Enter pane-select mode.
+		if key == "ctrl+b" {
+			m.paneSelectPending = true
+			return m, nil
+		}
+
+		// Start a leader sequence (only where space isn't needed for text input).
+		if (key == " " || key == "space") && m.canUseLeader() {
+			m.leaderPending = true
+			return m, nil
+		}
+
+		// Global keybindings.
+		switch key {
 		case "q":
-			// Quit from the home screens (dashboard and cluster list)
-			if m.state == views.StateDashboard || m.state == views.StateClusterList {
+			// Quit from the home screens (dashboard and cluster list), but not
+			// when the tree pane has focus (let it be a normal key there).
+			if m.focusPane == paneContent &&
+				(m.state == views.StateDashboard || m.state == views.StateClusterList) {
 				return m, tea.Quit
 			}
 
 		case "?":
-			// Toggle help overlay
-			if m.help.IsVisible() {
-				m.help.Toggle()
-			} else {
-				m.help.Toggle()
-			}
+			m.help.Toggle()
 			return m, nil
 
 		case "esc":
-			// Close help if open
+			// Close help if open.
 			if m.help.IsVisible() {
 				m.help.Toggle()
 				return m, nil
 			}
-			// Otherwise, navigate back to the dashboard home screen
+			// Return focus to the main pane if the tree holds it.
+			if m.focusPane == paneTree {
+				m.setFocus(paneContent)
+				return m, nil
+			}
+			// Otherwise, navigate back to the dashboard home screen.
 			if m.state != views.StateDashboard {
 				m.state = views.StateDashboard
 				return m, m.dashboard.Init()
 			}
 		}
 
-		// Route to active view if help is not visible
-		if !m.help.IsVisible() {
-			return m.routeUpdate(msg)
-		}
-
-		// Handle help overlay
-		if m.help.IsVisible() {
-			m.help, cmd = m.help.Update(msg)
+		// Route keys to the focused pane.
+		if m.treeVisible && m.focusPane == paneTree {
+			m.clusterTree, cmd = m.clusterTree.Update(msg)
 			return m, cmd
 		}
+		return m.routeUpdate(msg)
 
 	case views.StateChangeMsg:
 		// Handle state changes from child views
@@ -210,10 +279,59 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Refresh cluster list after deletion
 		m.state = views.StateClusterList
 		return m, m.clusterList.Init()
+
+	case views.OpenClusterLogsMsg:
+		// Open a cluster's logs from the explorer tree.
+		m.state = views.StateClusterList
+		m.setFocus(paneContent)
+		m.clusterList.ShowLogsFor(msg.ClusterName)
+		return m, m.clusterList.Init()
 	}
 
-	// Route to active view
-	return m.routeUpdate(msg)
+	// Non-key messages: keep the explorer tree live (its own refresh tick +
+	// cluster reloads) while it is visible, in addition to the active view.
+	var treeCmd tea.Cmd
+	if m.treeVisible {
+		m.clusterTree, treeCmd = m.clusterTree.Update(msg)
+	}
+	m, cmd = m.routeUpdateModel(msg)
+	return m, tea.Batch(cmd, treeCmd)
+}
+
+// routeUpdateModel is routeUpdate returning the concrete RootModel so the caller
+// can keep mutating it (used on the non-key message path).
+func (m RootModel) routeUpdateModel(msg tea.Msg) (RootModel, tea.Cmd) {
+	model, cmd := m.routeUpdate(msg)
+	return model.(RootModel), cmd
+}
+
+// canUseLeader reports whether the space key can act as the leader in the current
+// state. Disabled in text-input views so space still types normally.
+func (m RootModel) canUseLeader() bool {
+	switch m.state {
+	case views.StateCreateForm, views.StateCredentialsForm, views.StateProfilesForm,
+		views.StateAMIsForm, views.StateUpgradeForm, views.StateDeleteConfirm:
+		return false
+	default:
+		return true
+	}
+}
+
+// toggleTree shows/hides the explorer pane, returning its Init cmd when opened.
+func (m *RootModel) toggleTree() tea.Cmd {
+	m.treeVisible = !m.treeVisible
+	if m.treeVisible {
+		m.setFocus(paneTree)
+		return m.clusterTree.Init()
+	}
+	m.setFocus(paneContent)
+	return nil
+}
+
+// setFocus moves pane focus and updates the tree's focused flag.
+func (m *RootModel) setFocus(pane int) {
+	m.focusPane = pane
+	m.clusterTree.SetFocused(pane == paneTree)
 }
 
 // routeUpdate routes messages to the active view
@@ -264,6 +382,32 @@ func (m RootModel) View() string {
 	headerHeight := 2    // header + newline
 	footerBarHeight := 3 // border + 1 line + padding
 
+	// When the explorer tree is visible it occupies a fixed-width left column,
+	// so the main content pane shrinks to fit beside it.
+	contentWidth := m.width
+	if m.treeVisible {
+		contentWidth = m.width - views.TreeWidth
+		if contentWidth < 20 {
+			contentWidth = 20
+		}
+
+		// Re-size the non-cluster-list views to the narrower pane (the cluster
+		// list sizes itself below).
+		contentHeight := m.height - headerHeight - footerBarHeight
+		if contentHeight < 10 {
+			contentHeight = 10
+		}
+		m.dashboard.SetSize(contentWidth, contentHeight)
+		m.createForm.SetSize(contentWidth, contentHeight)
+		m.credentialsList.SetSize(contentWidth, contentHeight)
+		m.credentialsForm.SetSize(contentWidth, contentHeight)
+		m.profilesList.SetSize(contentWidth, contentHeight)
+		m.profilesForm.SetSize(contentWidth, contentHeight)
+		m.amisList.SetSize(contentWidth, contentHeight)
+		m.amisForm.SetSize(contentWidth, contentHeight)
+		m.upgradeForm.SetSize(contentWidth, contentHeight)
+	}
+
 	// Get content from active view
 	var content string
 	var footer string
@@ -283,16 +427,16 @@ func (m RootModel) View() string {
 			if reducedHeight < 6 {
 				reducedHeight = 6
 			}
-			m.clusterList.SetSize(m.width, reducedHeight)
+			m.clusterList.SetSize(contentWidth, reducedHeight)
 			content = m.clusterList.View()
-			footer = m.footer.ViewWithLogs(selectedCluster)
+			footer = m.footer.ViewWithLogs(selectedCluster, m.clusterList.GetCopyNotice())
 		} else {
 			// No logs: cluster list gets full content area
 			fullHeight := m.height - headerHeight - footerBarHeight
 			if fullHeight < 10 {
 				fullHeight = 10
 			}
-			m.clusterList.SetSize(m.width, fullHeight)
+			m.clusterList.SetSize(contentWidth, fullHeight)
 			content = m.clusterList.View()
 			footer = m.footer.ViewForStateWithError(m.state, m.clusterList.GetCursorClusterError())
 		}
@@ -328,6 +472,11 @@ func (m RootModel) View() string {
 	default:
 		content = fmt.Sprintf("State: %s (not implemented)", m.state)
 		footer = m.footer.ViewForState(m.state)
+	}
+
+	// When visible, place the explorer tree in a left column beside the content.
+	if m.treeVisible {
+		content = lipgloss.JoinHorizontal(lipgloss.Top, m.clusterTree.View(), content)
 	}
 
 	// Combine all parts

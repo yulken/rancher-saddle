@@ -1,7 +1,10 @@
 package views
 
 import (
+	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Felipalds/rancher-tui/internal/config"
@@ -9,14 +12,85 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// dashBanner is the Astronvim/Tornado-style ASCII banner shown on the home screen.
-var dashBanner = []string{
+// embeddedBanner is the project banner art, compiled into the binary from
+// rancher-logo.txt at build time. Edit that file to change the banner.
+//
+//go:embed rancher-logo.txt
+var embeddedBanner string
+
+// figletFallback is the built-in banner used only when neither the embedded
+// art nor a custom banner file is available.
+var figletFallback = []string{
 	" ██▀███   ▄▄▄       ███▄    █  ▄████▄   ██░ ██ ▓█████  ██▀███  ",
 	"▓██ ▒ ██▒▒████▄     ██ ▀█   █ ▒██▀ ▀█  ▓██░ ██▒▓█   ▀ ▓██ ▒ ██▒",
 	"▓██ ░▄█ ▒▒██  ▀█▄  ▓██  ▀█ ██▒▒▓█    ▄ ▒██▀▀██░▒███   ▓██ ░▄█ ▒",
 	"▒██▀▀█▄  ░██▄▄▄▄██ ▓██▒  ▐▌██▒▒▓▓▄ ▄██▒░▓█ ░██ ▒▓█  ▄ ▒██▀▀█▄  ",
 	"░██▓ ▒██▒ ▓█   ▓██▒▒██░   ▓██░▒ ▓███▀ ░░▓█▒░██▓░▒████▒░██▓ ▒██▒",
 	"             t u i  —  manage the Rancher product family       ",
+}
+
+// bannerSource identifies where the resolved banner came from.
+type bannerSource int
+
+const (
+	bannerFiglet bannerSource = iota
+	bannerEmbedded
+	bannerCustom
+)
+
+// bannerFileName is the file the dashboard looks for to override the banner.
+const bannerFileName = "banner.txt"
+
+// bannerSearchPaths returns, in priority order, the locations checked for a
+// custom banner file: the RANCHER_TUI_BANNER env var, a banner.txt in the
+// working directory, then ~/.config/rancher-tui/banner.txt.
+func bannerSearchPaths() []string {
+	var paths []string
+	if p := os.Getenv("RANCHER_TUI_BANNER"); p != "" {
+		paths = append(paths, p)
+	}
+	paths = append(paths, bannerFileName)
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths, filepath.Join(home, ".config", "rancher-tui", bannerFileName))
+	}
+	return paths
+}
+
+// parseBanner splits raw file contents into banner lines. It reports ok=false
+// when the content is empty/whitespace-only so callers fall back to the default.
+func parseBanner(raw string) (lines []string, ok bool) {
+	text := strings.TrimRight(raw, "\r\n")
+	if strings.TrimSpace(text) == "" {
+		return nil, false
+	}
+	return strings.Split(text, "\n"), true
+}
+
+// loadBannerFrom returns the first readable, non-empty banner from paths, and
+// whether one was found.
+func loadBannerFrom(paths []string) (lines []string, found bool) {
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if parsed, ok := parseBanner(string(data)); ok {
+			return parsed, true
+		}
+	}
+	return nil, false
+}
+
+// loadBanner resolves the banner to display: a custom override file wins, else
+// the embedded rancher-logo.txt art, else the built-in figlet fallback.
+func loadBanner() (lines []string, source bannerSource) {
+	if parsed, ok := loadBannerFrom(bannerSearchPaths()); ok {
+		return parsed, bannerCustom
+	}
+	if parsed, ok := parseBanner(embeddedBanner); ok {
+		return parsed, bannerEmbedded
+	}
+	return figletFallback, bannerFiglet
 }
 
 // dashItem is a single selectable action on the dashboard.
@@ -63,17 +137,22 @@ func (m dashMenu) selected() dashItem {
 
 // DashboardModel is the Astronvim-style home screen.
 type DashboardModel struct {
-	width  int
-	height int
-	menu   dashMenu
+	width        int
+	height       int
+	menu         dashMenu
+	banner       []string
+	bannerSource bannerSource
 }
 
 // NewDashboardModel creates the dashboard with its default action menu.
 func NewDashboardModel() DashboardModel {
+	banner, source := loadBanner()
 	return DashboardModel{
-		width:  80,
-		height: 24,
-		menu:   dashMenu{items: defaultDashItems()},
+		width:        80,
+		height:       24,
+		menu:         dashMenu{items: defaultDashItems()},
+		banner:       banner,
+		bannerSource: source,
 	}
 }
 
@@ -115,12 +194,28 @@ func (m DashboardModel) activate() tea.Cmd {
 
 // View renders the dashboard.
 func (m DashboardModel) View() string {
-	bannerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
-	banner := bannerStyle.Render(strings.Join(dashBanner, "\n"))
+	// If the art carries its own ANSI color codes, render it as-is; otherwise
+	// paint it Rancher-blue so plain (uncolored) art is always visible.
+	banner := strings.Join(m.banner, "\n")
+	if !strings.Contains(banner, "\x1b") {
+		banner = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Bold(true).Render(banner)
+	}
 
-	itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Padding(0, 2)
+	// Uniform width so every item (and the selection highlight) is the same size
+	// and centered on one axis.
+	menuWidth := 0
+	for _, it := range m.menu.items {
+		if w := lipgloss.Width(it.label); w > menuWidth {
+			menuWidth = w
+		}
+	}
+	menuWidth += 6 // room for the ▶ marker and side padding
+
+	itemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("250")).
+		Width(menuWidth).Align(lipgloss.Center)
 	selStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("236")).
-		Background(lipgloss.Color("86")).Bold(true).Padding(0, 2)
+		Background(lipgloss.Color("86")).Bold(true).
+		Width(menuWidth).Align(lipgloss.Center)
 
 	var menuLines []string
 	for i, it := range m.menu.items {
@@ -128,7 +223,7 @@ func (m DashboardModel) View() string {
 		if i == m.menu.cursor {
 			menuLines = append(menuLines, selStyle.Render("▶ "+line))
 		} else {
-			menuLines = append(menuLines, itemStyle.Render("  "+line))
+			menuLines = append(menuLines, itemStyle.Render(line))
 		}
 	}
 	menu := lipgloss.JoinVertical(lipgloss.Center, menuLines...)

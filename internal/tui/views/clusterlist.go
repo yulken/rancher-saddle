@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -24,6 +25,20 @@ type ClusterListModel struct {
 	clusterNames    []string
 	selectedCluster string // Currently selected cluster for log viewing
 	showLogs        bool   // Whether to show logs
+
+	// autoShownErrors tracks clusters whose logs were auto-opened because they
+	// entered the "failed" state, so we don't force the panel back open every
+	// refresh after the user hides it. The flag is cleared when the cluster
+	// leaves the failed state, so a later failure re-opens the logs.
+	autoShownErrors map[string]bool
+
+	// copyNotice is a transient message shown in the log panel after a copy.
+	copyNotice string
+}
+
+// logsCopiedMsg is returned after the deployment logs are copied to the clipboard.
+type logsCopiedMsg struct {
+	notice string
 }
 
 // refreshTickMsg is sent periodically to auto-refresh the cluster list
@@ -187,20 +202,33 @@ func (m ClusterListModel) Update(msg tea.Msg) (ClusterListModel, tea.Cmd) {
 						// Hide logs if already showing
 						m.showLogs = false
 						m.selectedCluster = ""
+						m.copyNotice = ""
 					} else {
 						// Show logs for this cluster
 						m.showLogs = true
 						m.selectedCluster = clusterName
+						m.copyNotice = ""
 					}
 					return m, nil
 				}
 			}
+
+		case "y":
+			// Copy the visible cluster's full deployment log to the clipboard.
+			if m.showLogs && m.selectedCluster != "" {
+				return m, copyLogsCmd(m.selectedCluster)
+			}
 		}
+
+	case logsCopiedMsg:
+		m.copyNotice = msg.notice
+		return m, nil
 
 	case clustersLoadedMsg:
 		m.clusters = msg.clusters
 		m.clusterNames = msg.names
 		m.updateTable()
+		m.autoShowFailedLogs()
 		return m, nil
 
 	case refreshTickMsg:
@@ -310,6 +338,63 @@ type clustersLoadedMsg struct {
 // GetSelectedCluster returns the currently selected cluster name and whether logs are shown
 func (m ClusterListModel) GetSelectedCluster() (string, bool) {
 	return m.selectedCluster, m.showLogs
+}
+
+// GetCopyNotice returns the transient post-copy message for the log panel.
+func (m ClusterListModel) GetCopyNotice() string {
+	return m.copyNotice
+}
+
+// copyLogsCmd reads a cluster's full deployment log and copies it to the system
+// clipboard via OSC52, returning a status notice for the log panel.
+func copyLogsCmd(clusterName string) tea.Cmd {
+	return func() tea.Msg {
+		path := fmt.Sprintf("logs/%s.log", clusterName)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return logsCopiedMsg{notice: "no logs to copy"}
+		}
+		copyToClipboard(string(data))
+		lines := strings.Count(strings.TrimRight(string(data), "\n"), "\n") + 1
+		return logsCopiedMsg{notice: fmt.Sprintf("copied %d lines to clipboard", lines)}
+	}
+}
+
+// ShowLogsFor opens the log panel for the named cluster and moves the table
+// cursor to it. Used when a cluster is selected from the tree explorer.
+func (m *ClusterListModel) ShowLogsFor(name string) {
+	m.selectedCluster = name
+	m.showLogs = true
+	for i, n := range m.clusterNames {
+		if n == name {
+			m.table.SetCursor(i)
+			break
+		}
+	}
+}
+
+// autoShowFailedLogs opens the log panel automatically for a cluster that has
+// just entered the "failed" state, so deployment errors are surfaced without the
+// user needing to press Enter.
+func (m *ClusterListModel) autoShowFailedLogs() {
+	if m.autoShownErrors == nil {
+		m.autoShownErrors = make(map[string]bool)
+	}
+	for _, name := range m.clusterNames {
+		cluster := m.clusters[name]
+		if cluster == nil {
+			continue
+		}
+		if cluster.Status == "failed" {
+			if !m.autoShownErrors[name] {
+				m.autoShownErrors[name] = true
+				m.ShowLogsFor(name)
+			}
+		} else {
+			// Reset so a future failure re-opens the logs.
+			delete(m.autoShownErrors, name)
+		}
+	}
 }
 
 // GetCursorClusterError returns the LastError of the cluster currently under the

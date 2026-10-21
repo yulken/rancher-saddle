@@ -14,14 +14,14 @@ import (
 	"github.com/Felipalds/rancher-tui/internal/orchestrators/k3s"
 	"github.com/Felipalds/rancher-tui/internal/orchestrators/rke2"
 	"github.com/Felipalds/rancher-tui/internal/providers/aws"
-	"github.com/Felipalds/rancher-tui/internal/providers/vagrant"
+	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	// Register providers
 	core.GlobalRegistry.RegisterProvider(aws.NewProvider())
-	core.GlobalRegistry.RegisterProvider(vagrant.NewProvider())
+	core.GlobalRegistry.RegisterProvider(libvirt.NewProvider())
 
 	// Register orchestrators
 	core.GlobalRegistry.RegisterOrchestrator(rke2.NewOrchestrator())

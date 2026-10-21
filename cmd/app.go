@@ -13,11 +13,15 @@ func RunApp() error {
 	// Create the root model
 	m := tui.NewRootModel()
 
-	// Create the program with alt screen
+	// Create the program with alt screen. We deliberately do NOT enable mouse
+	// capture (tea.WithMouseCellMotion): capturing the mouse hands click/drag
+	// events to the app and prevents the terminal's own text selection, so
+	// users couldn't select/copy the log panel with the mouse. With capture
+	// off, native click-drag selection works like in Neovim/Claude TUIs (the
+	// 'y' key still copies the full log via OSC52 for streaming logs).
 	p := tea.NewProgram(
 		m,
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 	)
 
 	// Run the program

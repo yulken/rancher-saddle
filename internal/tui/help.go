@@ -80,13 +80,21 @@ func (m HelpModel) View() string {
 	// Command section
 	s.WriteString(sectionStyle.Render("Command") + "\n")
 	s.WriteString(keyStyle.Render("  <space>   ") + descStyle.Render("Leader (which-key popup)") + "\n")
+	s.WriteString(keyStyle.Render("  <space> e ") + descStyle.Render("Toggle cluster explorer tree") + "\n")
 	s.WriteString(keyStyle.Render("  :         ") + descStyle.Render("Command mode") + "\n")
 	s.WriteString(keyStyle.Render("  /         ") + descStyle.Render("Search") + "\n")
+
+	// Panes section
+	s.WriteString(sectionStyle.Render("Panes / Buffers") + "\n")
+	s.WriteString(keyStyle.Render("  ctrl+b    ") + descStyle.Render("Switch pane focus, then h/j/k/l or ←↓↑→") + "\n")
+	s.WriteString(keyStyle.Render("  h/l       ") + descStyle.Render("(in tree) collapse / expand node") + "\n")
+	s.WriteString(keyStyle.Render("  enter     ") + descStyle.Render("(in tree) open cluster logs") + "\n")
 
 	// Actions section
 	s.WriteString(sectionStyle.Render("Actions") + "\n")
 	s.WriteString(keyStyle.Render("  d         ") + descStyle.Render("Delete cluster") + "\n")
-	s.WriteString(keyStyle.Render("  l         ") + descStyle.Render("View logs") + "\n")
+	s.WriteString(keyStyle.Render("  enter     ") + descStyle.Render("Toggle logs panel") + "\n")
+	s.WriteString(keyStyle.Render("  y         ") + descStyle.Render("Copy logs to clipboard") + "\n")
 	s.WriteString(keyStyle.Render("  r         ") + descStyle.Render("Refresh now") + "\n")
 	s.WriteString(keyStyle.Render("  q         ") + descStyle.Render("Quit/Exit") + "\n")
 

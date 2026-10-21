@@ -5,7 +5,7 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/core"
 	"github.com/Felipalds/rancher-tui/internal/orchestrators/harvester"
-	"github.com/Felipalds/rancher-tui/internal/providers/vagrant"
+	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,15 +15,15 @@ import (
 func TestRegister_HarvesterAndVagrant(t *testing.T) {
 	reg := core.NewRegistry()
 	reg.RegisterOrchestrator(harvester.NewOrchestrator())
-	reg.RegisterProvider(vagrant.NewProvider())
+	reg.RegisterProvider(libvirt.NewProvider())
 
 	o, err := reg.GetOrchestrator(core.OrchestratorHarvester)
 	require.NoError(t, err)
 	assert.Equal(t, core.OrchestratorHarvester, o.Name())
 	assert.Contains(t, reg.ListOrchestrators(), core.OrchestratorHarvester)
 
-	p, err := reg.GetProvider(core.ProviderVagrant)
+	p, err := reg.GetProvider(core.ProviderLibvirt)
 	require.NoError(t, err)
-	assert.Equal(t, core.ProviderVagrant, p.Name())
-	assert.Contains(t, reg.ListProviders(), core.ProviderVagrant)
+	assert.Equal(t, core.ProviderLibvirt, p.Name())
+	assert.Contains(t, reg.ListProviders(), core.ProviderLibvirt)
 }

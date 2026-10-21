@@ -10,23 +10,36 @@ func TestHarvesterConfig_FromMap_Defaults(t *testing.T) {
 	cfg := &HarvesterConfig{}
 	cfg.FromMap(map[string]interface{}{})
 
-	assert.Equal(t, "vagrant", cfg.InstallTarget)
-	assert.Equal(t, "libvirt", cfg.VagrantBackend)
+	assert.Equal(t, defaultVersion, cfg.Version)
+	assert.Equal(t, defaultClusterToken, cfg.ClusterToken)
+	assert.Equal(t, defaultPassword, cfg.Password)
+	assert.Equal(t, defaultVIP, cfg.VIP)
+	assert.Equal(t, VIPModeStatic, cfg.VIPMode)
+	assert.Equal(t, []string{defaultNTPServer}, cfg.NTPServers)
+	assert.False(t, cfg.DeployRancher)
 	assert.GreaterOrEqual(t, cfg.NodeCount, 1)
-	assert.NotEmpty(t, cfg.HarvesterVersion)
 }
 
 func TestHarvesterConfig_FromMap_Overrides(t *testing.T) {
 	cfg := &HarvesterConfig{}
 	cfg.FromMap(map[string]interface{}{
-		"install_target":    "cloud",
-		"vagrant_backend":   "libvirt",
-		"harvester_version": "v1.4.0",
+		"harvester_version": "v1.5.0",
+		"cluster_token":     "mytoken",
+		"password":          "s3cret",
+		"vip":               "10.0.0.5",
+		"vip_mode":          "static",
+		"ntp_servers":       "a.ntp.org, b.ntp.org",
+		"deploy_rancher":    true,
 		"node_count":        3,
 	})
 
-	assert.Equal(t, "cloud", cfg.InstallTarget)
-	assert.Equal(t, "v1.4.0", cfg.HarvesterVersion)
+	assert.Equal(t, "v1.5.0", cfg.Version)
+	assert.Equal(t, "mytoken", cfg.ClusterToken)
+	assert.Equal(t, "s3cret", cfg.Password)
+	assert.Equal(t, "10.0.0.5", cfg.VIP)
+	assert.Equal(t, "static", cfg.VIPMode)
+	assert.Equal(t, []string{"a.ntp.org", "b.ntp.org"}, cfg.NTPServers)
+	assert.True(t, cfg.DeployRancher)
 	assert.Equal(t, 3, cfg.NodeCount)
 }
 
@@ -36,11 +49,12 @@ func TestHarvesterConfig_Validate(t *testing.T) {
 		cfg     HarvesterConfig
 		wantErr bool
 	}{
-		{"valid vagrant/libvirt", HarvesterConfig{InstallTarget: "vagrant", VagrantBackend: "libvirt", NodeCount: 1}, false},
-		{"valid cloud", HarvesterConfig{InstallTarget: "cloud", VagrantBackend: "libvirt", NodeCount: 3}, false},
-		{"invalid install target", HarvesterConfig{InstallTarget: "azure", VagrantBackend: "libvirt", NodeCount: 1}, true},
-		{"invalid backend for vagrant", HarvesterConfig{InstallTarget: "vagrant", VagrantBackend: "virtualbox", NodeCount: 1}, true},
-		{"zero node count", HarvesterConfig{InstallTarget: "vagrant", VagrantBackend: "libvirt", NodeCount: 0}, true},
+		{"valid DHCP", HarvesterConfig{Version: "v1.4.1", VIP: "1.2.3.4", VIPMode: "DHCP", NodeCount: 1}, false},
+		{"valid static", HarvesterConfig{Version: "v1.4.1", VIP: "1.2.3.4", VIPMode: "static", NodeCount: 3}, false},
+		{"missing version", HarvesterConfig{VIP: "1.2.3.4", VIPMode: "DHCP", NodeCount: 1}, true},
+		{"missing vip", HarvesterConfig{Version: "v1.4.1", VIPMode: "DHCP", NodeCount: 1}, true},
+		{"bad vip mode", HarvesterConfig{Version: "v1.4.1", VIP: "1.2.3.4", VIPMode: "bogus", NodeCount: 1}, true},
+		{"zero nodes", HarvesterConfig{Version: "v1.4.1", VIP: "1.2.3.4", VIPMode: "DHCP", NodeCount: 0}, true},
 	}
 
 	for _, tt := range tests {
@@ -57,9 +71,9 @@ func TestHarvesterConfig_Validate(t *testing.T) {
 
 func TestHarvester_GetDefaultConfig(t *testing.T) {
 	d := GetDefaultConfig()
-	assert.Equal(t, "vagrant", d["install_target"])
-	assert.Equal(t, "libvirt", d["vagrant_backend"])
-	assert.Contains(t, d, "node_count")
+	assert.Equal(t, defaultVersion, d["harvester_version"])
+	assert.Equal(t, defaultVIP, d["vip"])
+	assert.Contains(t, d, "cluster_token")
 }
 
 func TestHarvester_GetRequiredFields(t *testing.T) {
@@ -69,6 +83,7 @@ func TestHarvester_GetRequiredFields(t *testing.T) {
 	for _, f := range fields {
 		names[f.Name] = true
 	}
-	assert.True(t, names["install_target"])
-	assert.True(t, names["vagrant_backend"])
+	assert.True(t, names["harvester_version"])
+	assert.True(t, names["vip"])
+	assert.True(t, names["vip_mode"])
 }

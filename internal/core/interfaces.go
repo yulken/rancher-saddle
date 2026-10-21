@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"io"
 )
 
 // Provider interface for cloud providers
@@ -49,6 +50,27 @@ type Orchestrator interface {
 
 	// GetModules returns the logical deployment modules for this orchestrator
 	GetModules() []Module
+}
+
+// ProviderWithCustomApply is an optional interface a Provider can implement when
+// the standard "init + apply + getOutputs + ansible" pipeline does not fit.
+//
+// The Vagrant/Harvester flow is the first user: it boots a PXE server VM,
+// configures it via Ansible, then boots PXE nodes that self-install Harvester —
+// a two-phase flow that cannot be expressed as a single `tofu apply`. When a
+// provider implements this interface, the workflow runner delegates the apply
+// phase to CustomApply instead of running the OpenTofu steps.
+type ProviderWithCustomApply interface {
+	Provider
+
+	// PlannedOutputs returns the infrastructure outputs that are known ahead of
+	// time from the configuration alone (e.g. deterministic/static IPs). The
+	// runner uses these to render the inventory before the VMs are booted.
+	PlannedOutputs(config map[string]interface{}) (*InfrastructureOutputs, error)
+
+	// CustomApply performs the full provisioning flow, streaming progress to
+	// logWriter, and returns the final infrastructure outputs.
+	CustomApply(ctx context.Context, config map[string]interface{}, buildDir string, logWriter io.Writer) (*InfrastructureOutputs, error)
 }
 
 // Generator interface for code generation (Terraform, Ansible, etc.)

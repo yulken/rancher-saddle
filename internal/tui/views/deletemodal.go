@@ -2,6 +2,7 @@ package views
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/Felipalds/rancher-tui/internal/config"
+	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -141,6 +144,31 @@ func destroyCluster(name string) {
 	buildDir := cluster.BuildDir
 	if buildDir == "" {
 		buildDir = filepath.Join("clusters", name)
+	}
+
+	// Local libvirt clusters are torn down with virsh, not OpenTofu.
+	// "vagrant" is the legacy id for clusters created before the libvirt rename.
+	if cluster.Provider.Type == string(core.ProviderLibvirt) || cluster.Provider.Type == "vagrant" {
+		writeLog("Tearing down libvirt VMs, network and disks...")
+		var w io.Writer = io.Discard
+		if logFile != nil {
+			w = logFile
+		}
+		if err := libvirt.Teardown(context.Background(), name, buildDir, w); err != nil {
+			writeLog(fmt.Sprintf("Warning: libvirt teardown reported: %v", err))
+		}
+		if err := os.RemoveAll(buildDir); err != nil {
+			writeLog(fmt.Sprintf("Warning: failed to remove build directory: %v", err))
+		}
+		writeLog("Removing cluster from config.yaml...")
+		cfg, _ = config.LoadClustersConfig("config.yaml")
+		cfg.DeleteCluster(name)
+		cfg.Save("config.yaml")
+		writeLog(fmt.Sprintf("Cluster '%s' deleted successfully", name))
+		if logFile != nil {
+			logFile.Close()
+		}
+		return
 	}
 
 	// Destroy infrastructure with tofu

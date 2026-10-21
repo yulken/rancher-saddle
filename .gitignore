@@ -59,3 +59,6 @@ id_rsa*
 
 # Learning notes
 learning/
+
+# Harvester media cache (downloaded ISOs/kernels)
+harvester-isos/

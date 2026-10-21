@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	"github.com/Felipalds/rancher-tui/internal/workflow"
 )
 
@@ -219,7 +221,15 @@ func DeleteCluster(name string, force bool) error {
 		buildDir = filepath.Join("clusters", name)
 	}
 
-	if _, err := os.Stat(buildDir); !os.IsNotExist(err) {
+	if cluster.Provider.Type == string(core.ProviderLibvirt) || cluster.Provider.Type == "vagrant" {
+		fmt.Println("Tearing down libvirt VMs, network and disks...")
+		if err := libvirt.Teardown(context.Background(), name, buildDir, os.Stdout); err != nil {
+			fmt.Printf("Warning: libvirt teardown reported: %v\n", err)
+		}
+		if err := os.RemoveAll(buildDir); err != nil {
+			fmt.Printf("Warning: failed to remove build directory: %v\n", err)
+		}
+	} else if _, err := os.Stat(buildDir); !os.IsNotExist(err) {
 		fmt.Println("Destroying infrastructure...")
 		cmd := exec.Command("tofu", "destroy", "-auto-approve")
 		cmd.Dir = buildDir

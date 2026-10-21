@@ -66,14 +66,28 @@ func (r *ModularRunner) RunWithBuildDir(buildDir string) error {
 		return err
 	}
 
-	// Step 1: Generate infrastructure code
-	fmt.Printf("Generating %s infrastructure configuration...\n", r.Provider.Name())
-
 	// Merge common config with provider config
 	providerConfig := r.mergeProviderConfig()
 
+	// Preflight: validate provider prerequisites/config before doing any work,
+	// so missing tooling (e.g. vagrant/libvirt) fails fast with a clear message.
+	if err := r.Provider.Validate(providerConfig); err != nil {
+		return fmt.Errorf("provider validation failed: %w", err)
+	}
+
+	// Step 1: Generate infrastructure code
+	fmt.Printf("Generating %s infrastructure configuration...\n", r.Provider.Name())
+
 	if err := r.Provider.GenerateInfrastructure(ctx, providerConfig, buildDir); err != nil {
 		return fmt.Errorf("failed to generate infrastructure: %w", err)
+	}
+
+	// Custom apply path: providers that do not fit the OpenTofu pipeline (e.g.
+	// Vagrant/Harvester's two-phase PXE boot) implement ProviderWithCustomApply.
+	// We still let the orchestrator render its playbook + inventory first, then
+	// hand the apply phase to the provider and skip the standard steps 2-8.
+	if cap, ok := r.Provider.(core.ProviderWithCustomApply); ok {
+		return r.runCustomApply(ctx, cap, providerConfig, buildDir)
 	}
 
 	// Step 2: Initialize infrastructure tool (Terraform/Tofu)
@@ -142,6 +156,52 @@ func (r *ModularRunner) RunWithBuildDir(buildDir string) error {
 	return nil
 }
 
+// runCustomApply drives the deployment for providers that implement
+// ProviderWithCustomApply (e.g. Vagrant/Harvester). The orchestrator still owns
+// the playbook + inventory generation; the provider owns the actual apply.
+func (r *ModularRunner) runCustomApply(ctx context.Context, provider core.ProviderWithCustomApply, providerConfig map[string]interface{}, buildDir string) error {
+	orchestratorConfig := r.mergeOrchestratorConfig()
+
+	// Bridge the cluster VIP from the orchestrator config into the provider
+	// config so CustomApply can poll it for cluster readiness.
+	if vip, ok := orchestratorConfig["vip"]; ok {
+		providerConfig["vip"] = vip
+	}
+
+	// Planned outputs are derived from config (deterministic/static IPs) so the
+	// inventory can be rendered before any VM is booted.
+	planned, err := provider.PlannedOutputs(providerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to plan outputs: %w", err)
+	}
+
+	// Generate the orchestrator playbook (e.g. PXE server setup).
+	fmt.Printf("Generating %s playbook...\n", r.Orchestrator.Name())
+	if err := r.Orchestrator.GeneratePlaybook(ctx, orchestratorConfig, buildDir); err != nil {
+		return fmt.Errorf("failed to generate playbook: %w", err)
+	}
+
+	// Generate the inventory from the planned outputs.
+	fmt.Println("Generating inventory...")
+	if err := r.Orchestrator.GenerateInventory(ctx, planned, orchestratorConfig, buildDir); err != nil {
+		return fmt.Errorf("failed to generate inventory: %w", err)
+	}
+
+	// Hand the apply phase to the provider (two-phase vagrant boot + PXE install).
+	fmt.Printf("Applying %s infrastructure (this may take a while)...\n", r.Provider.Name())
+	outputs, err := provider.CustomApply(ctx, providerConfig, buildDir, os.Stdout)
+	if err != nil {
+		return fmt.Errorf("custom apply failed: %w", err)
+	}
+
+	if len(outputs.InstanceIPs) == 0 {
+		return fmt.Errorf("no instances created")
+	}
+
+	r.displaySuccess(outputs)
+	return nil
+}
+
 // mergeProviderConfig merges common config with provider-specific config
 func (r *ModularRunner) mergeProviderConfig() map[string]interface{} {
 	merged := make(map[string]interface{})
@@ -152,6 +212,7 @@ func (r *ModularRunner) mergeProviderConfig() map[string]interface{} {
 	}
 
 	// Add common fields
+	merged["cluster_name"] = r.Config.ClusterName
 	merged["ssh_key_name"] = r.Config.SSHKeyName
 	merged["node_prefix"] = r.Config.NodePrefix
 	merged["instance_count"] = r.Config.InstanceCount
@@ -169,6 +230,9 @@ func (r *ModularRunner) mergeOrchestratorConfig() map[string]interface{} {
 	}
 
 	// Add common fields
+	merged["cluster_name"] = r.Config.ClusterName
+	merged["node_prefix"] = r.Config.NodePrefix
+	merged["instance_count"] = r.Config.InstanceCount
 	merged["ssh_private_key_path"] = r.Config.SSHPrivateKeyPath
 	merged["ssh_user"] = r.Config.SSHUser
 

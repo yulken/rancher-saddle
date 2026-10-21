@@ -12,7 +12,7 @@ const (
 	ProviderAzure   ProviderType = "azure"
 	ProviderGCP     ProviderType = "gcp"
 	ProviderVSphere ProviderType = "vsphere"
-	ProviderVagrant ProviderType = "vagrant"
+	ProviderLibvirt ProviderType = "libvirt"
 )
 
 // OrchestratorType represents the Kubernetes distribution type

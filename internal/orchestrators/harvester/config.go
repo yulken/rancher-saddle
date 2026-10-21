@@ -2,126 +2,195 @@ package harvester
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
-// Supported values for the Harvester install target and local VM backend.
+// Supported VIP modes.
 const (
-	TargetCloud   = "cloud"
-	TargetVagrant = "vagrant"
-
-	BackendLibvirt = "libvirt"
-
-	defaultHarvesterVersion = "v1.4.0"
-	defaultNodeCount        = 1
+	VIPModeDHCP   = "DHCP"
+	VIPModeStatic = "static"
 )
 
-// HarvesterConfig holds Harvester HCI configuration.
-//
-// Phase 1 only scaffolds this: the config, validation and form fields are real,
-// but playbook/inventory generation is not implemented yet.
+// Defaults for a local Harvester cluster.
+const (
+	defaultVersion      = "v1.4.1"
+	defaultClusterToken = "token"
+	defaultPassword     = "p@ssword"
+	// Static VIP outside the libvirt DHCP range (.100-.200) so it is
+	// deterministic and pollable. DHCP mode would assign an unknown address.
+	defaultVIP     = "192.168.0.50"
+	defaultVIPMode = VIPModeStatic
+	// enp1s0 is the usual name for a single virtio NIC on a q35 machine (the
+	// layout we generate). Adjust in the form if your guest names it differently.
+	defaultMgmtInterface = "enp1s0"
+	defaultNTPServer     = "0.suse.pool.ntp.org"
+)
+
+// HarvesterConfig holds Harvester HCI install configuration.
 type HarvesterConfig struct {
-	InstallTarget    string // "cloud" | "vagrant"
-	VagrantBackend   string // "libvirt" (KVM) — only backend supported in Phase 1
-	HarvesterVersion string
-	NodeCount        int
+	Version       string
+	ClusterToken  string
+	Password      string
+	VIP           string
+	VIPMode       string
+	MgmtInterface string
+	NTPServers    []string
+	DeployRancher bool
+	NodeCount     int
 }
 
 // FromMap populates the config from a generic map, applying defaults.
 func (c *HarvesterConfig) FromMap(m map[string]interface{}) {
-	if v, ok := m["install_target"].(string); ok {
-		c.InstallTarget = v
+	if v, ok := m["harvester_version"].(string); ok && v != "" {
+		c.Version = v
+	} else if v, ok := m["version"].(string); ok && v != "" {
+		c.Version = v
 	}
-	if v, ok := m["vagrant_backend"].(string); ok {
-		c.VagrantBackend = v
+	if v, ok := m["cluster_token"].(string); ok {
+		c.ClusterToken = v
 	}
-	if v, ok := m["harvester_version"].(string); ok {
-		c.HarvesterVersion = v
+	if v, ok := m["password"].(string); ok {
+		c.Password = v
 	}
-	if v, ok := m["node_count"].(int); ok {
-		c.NodeCount = v
+	if v, ok := m["vip"].(string); ok {
+		c.VIP = v
+	}
+	if v, ok := m["vip_mode"].(string); ok {
+		c.VIPMode = v
+	}
+	if v, ok := m["mgmt_interface"].(string); ok {
+		c.MgmtInterface = v
+	}
+	if ntp := parseNTP(m["ntp_servers"]); ntp != nil {
+		c.NTPServers = ntp
+	}
+	c.DeployRancher = boolFrom(m, "deploy_rancher", c.DeployRancher)
+	c.NodeCount = intFrom(m, "node_count", c.NodeCount)
+	if c.NodeCount == 0 {
+		c.NodeCount = intFrom(m, "instance_count", 0)
 	}
 
-	// Apply defaults
-	if c.InstallTarget == "" {
-		c.InstallTarget = TargetVagrant
+	c.applyDefaults()
+}
+
+func (c *HarvesterConfig) applyDefaults() {
+	if c.Version == "" {
+		c.Version = defaultVersion
 	}
-	if c.VagrantBackend == "" {
-		c.VagrantBackend = BackendLibvirt
+	if c.ClusterToken == "" {
+		c.ClusterToken = defaultClusterToken
 	}
-	if c.HarvesterVersion == "" {
-		c.HarvesterVersion = defaultHarvesterVersion
+	if c.Password == "" {
+		c.Password = defaultPassword
+	}
+	if c.VIP == "" {
+		c.VIP = defaultVIP
+	}
+	if c.VIPMode == "" {
+		c.VIPMode = defaultVIPMode
+	}
+	if c.MgmtInterface == "" {
+		c.MgmtInterface = defaultMgmtInterface
+	}
+	if len(c.NTPServers) == 0 {
+		c.NTPServers = []string{defaultNTPServer}
 	}
 	if c.NodeCount == 0 {
-		c.NodeCount = defaultNodeCount
+		c.NodeCount = 1
 	}
 }
 
 // Validate checks the Harvester configuration.
 func (c *HarvesterConfig) Validate() error {
-	switch c.InstallTarget {
-	case TargetCloud, TargetVagrant:
+	if c.Version == "" {
+		return fmt.Errorf("harvester_version is required")
+	}
+	if c.VIP == "" {
+		return fmt.Errorf("vip is required")
+	}
+	switch c.VIPMode {
+	case VIPModeDHCP, VIPModeStatic:
 	default:
-		return fmt.Errorf("invalid install_target %q (must be %q or %q)", c.InstallTarget, TargetCloud, TargetVagrant)
+		return fmt.Errorf("invalid vip_mode %q (must be %q or %q)", c.VIPMode, VIPModeDHCP, VIPModeStatic)
 	}
-
-	if c.InstallTarget == TargetVagrant && c.VagrantBackend != BackendLibvirt {
-		return fmt.Errorf("invalid vagrant_backend %q (only %q is supported in Phase 1)", c.VagrantBackend, BackendLibvirt)
-	}
-
 	if c.NodeCount < 1 {
 		return fmt.Errorf("node_count must be at least 1, got %d", c.NodeCount)
 	}
 	return nil
 }
 
+// parseNTP accepts a []string, []interface{}, or a comma/space separated string.
+func parseNTP(v interface{}) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, e := range t {
+			if s, ok := e.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		fields := strings.FieldsFunc(t, func(r rune) bool { return r == ',' || r == ' ' })
+		if len(fields) == 0 {
+			return nil
+		}
+		return fields
+	default:
+		return nil
+	}
+}
+
+func boolFrom(m map[string]interface{}, key string, fallback bool) bool {
+	switch v := m[key].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "Yes" || v == "true" || v == "yes"
+	default:
+		return fallback
+	}
+}
+
+func intFrom(m map[string]interface{}, key string, fallback int) int {
+	switch v := m[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	default:
+		return fallback
+	}
+}
+
 // GetRequiredFields returns the TUI form fields for Harvester configuration.
 func GetRequiredFields() []core.FormField {
 	return []core.FormField{
-		{
-			Name:        "install_target",
-			Label:       "Install Target",
-			Description: "Where to install Harvester",
-			Required:    true,
-			Default:     TargetVagrant,
-			Type:        "select",
-			Options:     []string{TargetVagrant, TargetCloud},
-		},
-		{
-			Name:        "vagrant_backend",
-			Label:       "Vagrant Backend",
-			Description: "Local VM backend (Vagrant installs only)",
-			Required:    false,
-			Default:     BackendLibvirt,
-			Type:        "select",
-			Options:     []string{BackendLibvirt},
-		},
-		{
-			Name:        "harvester_version",
-			Label:       "Harvester Version",
-			Description: "Version of Harvester to install",
-			Required:    false,
-			Default:     defaultHarvesterVersion,
-			Type:        "string",
-		},
-		{
-			Name:        "node_count",
-			Label:       "Node Count",
-			Description: "Number of Harvester nodes",
-			Required:    false,
-			Default:     defaultNodeCount,
-			Type:        "int",
-		},
+		{Name: "harvester_version", Label: "Harvester Version", Description: "Version of Harvester to install", Default: defaultVersion, Type: "string"},
+		{Name: "cluster_token", Label: "Cluster Token", Description: "Shared token used by nodes to join", Default: defaultClusterToken, Type: "string"},
+		{Name: "password", Label: "Node Password", Description: "Password for the rancher OS user", Default: defaultPassword, Type: "string"},
+		{Name: "vip", Label: "Cluster VIP", Description: "Virtual IP for the Harvester cluster", Default: defaultVIP, Type: "string"},
+		{Name: "vip_mode", Label: "VIP Mode", Description: "How the VIP is assigned", Default: defaultVIPMode, Type: "select", Options: []string{VIPModeDHCP, VIPModeStatic}},
+		{Name: "ntp_servers", Label: "NTP Servers", Description: "Comma-separated NTP servers", Default: defaultNTPServer, Type: "string"},
+		{Name: "deploy_rancher", Label: "Deploy Rancher", Description: "Deploy Rancher alongside Harvester", Default: "No", Type: "select", Options: []string{"No", "Yes"}},
 	}
 }
 
 // GetDefaultConfig returns default Harvester configuration values.
 func GetDefaultConfig() map[string]interface{} {
 	return map[string]interface{}{
-		"install_target":    TargetVagrant,
-		"vagrant_backend":   BackendLibvirt,
-		"harvester_version": defaultHarvesterVersion,
-		"node_count":        defaultNodeCount,
+		"harvester_version": defaultVersion,
+		"cluster_token":     defaultClusterToken,
+		"password":          defaultPassword,
+		"vip":               defaultVIP,
+		"vip_mode":          defaultVIPMode,
+		"ntp_servers":       defaultNTPServer,
+		"deploy_rancher":    false,
 	}
 }

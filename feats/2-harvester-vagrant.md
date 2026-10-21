@@ -771,3 +771,78 @@ On "[harvester-ready]", replace the status line with "Harvester cluster ready at
 
 Keep all other log lines unchanged. No changes to the polling interval or retry logic.
 ```
+
+---
+
+## Implementation Status (2026-10-20)
+
+Core generation + deploy backend implemented and unit-tested.
+
+**Done:**
+- Prompt 1 — `core.ProviderWithCustomApply` (+ `PlannedOutputs`); runner validates the
+  provider and delegates to `runCustomApply` (generates playbook+inventory, then CustomApply).
+- Prompt 2 — `vagrant` config + `validator.go` (`CheckPrerequisites`, collects all failures).
+- Prompt 3 — `Vagrantfile.tmpl` + `provider.go` (`GenerateMAC`, `ComputeTopology`,
+  `GenerateInfrastructure`, `PlannedOutputs`, `GetOutputs`).
+- Prompt 4 — Harvester templates: `settings.yml`, `config.yaml` (create/join in one,
+  role-driven), `ipxe.tmpl`, `dhcpd.conf`, `setup-pxe.yml` (per-node tasks via Go `range`,
+  no Jinja to avoid delimiter clash).
+- Prompt 5 — Harvester config + orchestrator (`GeneratePlaybook`/`GenerateInventory`);
+  full `CustomApply` (ensure media → up pxe → ansible → up nodes → poll VIP).
+- Prompt 6 — `iso_cache.go` (`CacheDir`, `EnsureISO` with progress; `harvester-isos/` gitignored).
+- Prompt 7 — Round-trips through the existing map-based `ProviderConfig`/`OrchestratorConfig`
+  (`ToModernConfig`); no dedicated `HarvesterSection` struct was needed.
+- Prompt 8 — TUI: Harvester selectable; Vagrant↔Harvester coupling; AWS fields hidden for
+  the local-VM path; dedicated `handleLocalVMSubmit`/`createLocalVMCluster` (no cloud creds).
+- Prompt 9 — Provider/orchestrator already registered in `main.go`.
+
+**Design choices / deviations from the prompts:**
+- Node topology (names/MACs/IPs/roles) is shared via `core.Topology` written to
+  `topology.json` in the build dir (provider writes, orchestrator reads) — keeps the two
+  packages decoupled instead of importing one from the other.
+- `Provider.Validate` checks config only; host prerequisites are checked in `CustomApply`
+  (fail-fast at deploy) so merely validating a config doesn't require a libvirt host.
+- `config.yaml`/`ipxe` templates are consolidated (role-driven) rather than separate
+  create/join files.
+
+**Deferred:**
+- Prompt 10 — the in-place TUI progress line. `CustomApply` already emits structured
+  `[harvester-wait]`/`[harvester-ready]` events; the log view renders them as plain lines.
+- Per-node sizing/VIP/token in the create form (CPU/mem/disk/vip/token) currently use
+  provider/orchestrator defaults; advanced form fields are a follow-up.
+- End-to-end deploy is unverified (requires a libvirt/KVM host); only generation and unit
+  tests are exercised here.
+
+---
+
+## Architecture change (2026-10-20): PXE → ISO-boot, libvirt-direct
+
+The iPXE-netboot approach was replaced per user requirement ("no iPXE; boot the
+ISO, auto-install, auto-join"). Also dropped Vagrant: its box/SSH model doesn't
+fit installing an appliance OS from an ISO (SSH-convergence hang + reinstall
+loop). The provider id stays "vagrant" for config compatibility but now drives
+libvirt directly.
+
+**New flow:**
+- Each node is a libvirt domain (virsh + qemu-img): blank qcow2 disk + the
+  Harvester ISO as a CD-ROM, boot order `hd,cdrom` (blank disk falls through to
+  the installer, then boots the installed disk — no reinstall loop).
+- The ISO is repacked once (xorriso) to patch GRUB for an unattended boot:
+  `harvester.install.automatic=true` + `harvester.install.config_url=http://<gw>:8181/config`.
+- A built-in HTTP config server (not PXE/DHCP) serves each node its install
+  config by source IP: node 0 gets `mode: create`, the rest `mode: join` with
+  `server_url`+`token`. Create node boots first; we wait for the VIP, then boot
+  the joiners.
+- Only the ISO is needed (no separate vmlinuz/initrd/rootfs downloads).
+
+**Files:** `network.xml.tmpl`, `domain.xml.tmpl` (new); `config.yaml.tmpl` kept
+(install config); PXE templates (ipxe/dhcpd/setup-pxe/settings) removed.
+`iso_cache.go` adds `RepackAutoInstallISO`/`AutoInstallISOPath`; `config_server.go`
+is new; validator checks virsh/qemu-img/xorriso; `core.Topology` now carries the
+gateway instead of a PXE server IP.
+
+**Needs real-host validation (can't test here):** GRUB patch for the specific
+Harvester ISO version; boot-order fallthrough behavior; q35/virtio NIC naming
+(`management_interface.name`, defaulted to `enp1s0`); libvirt file permissions
+for qemu to read the ISO/disks. Cluster teardown (virsh destroy/undefine + net +
+disks) is not yet wired into the delete flow.
