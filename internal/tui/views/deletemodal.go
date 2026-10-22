@@ -12,6 +12,7 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/providers/aws"
 	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -116,8 +117,8 @@ func (m DeleteModalModel) ViewOver(content string) string {
 func destroyCluster(name string) {
 	// Set up logging
 	logPath := fmt.Sprintf("logs/%s.log", name)
-	os.MkdirAll("logs", 0755)
-	logFile, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	os.MkdirAll("logs", 0o755)
+	logFile, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 
 	writeLog := func(message string) {
 		if logFile != nil {
@@ -173,9 +174,29 @@ func destroyCluster(name string) {
 
 	// Destroy infrastructure with tofu
 	if _, err := os.Stat(buildDir); !os.IsNotExist(err) {
+		// Preflight: tofu destroy needs working credentials. Check before
+		// attempting the destroy so an expired SSO session yields an actionable
+		// error instead of a partial teardown.
+		if cluster.Provider.Type == string(core.ProviderAWS) {
+			writeLog("Verifying AWS credentials...")
+			if err := aws.CheckSession(context.Background(), cluster.Provider.Config); err != nil {
+				msg := fmt.Sprintf("AWS authentication failed: %v - run `aws sso login --profile %s`",
+					err, aws.Profile(cluster.Provider.Config))
+				writeLog("ERROR: " + msg)
+				updateClusterStatusWithError(name, "delete-failed", msg)
+				if logFile != nil {
+					logFile.Close()
+				}
+				return
+			}
+		}
+
 		writeLog("Destroying infrastructure with tofu destroy...")
 		cmd := exec.Command("tofu", "destroy", "-auto-approve")
 		cmd.Dir = buildDir
+		if cluster.Provider.Type == string(core.ProviderAWS) {
+			cmd.Env = aws.EnvFor(cluster.Provider.Config)
+		}
 
 		// Capture stderr to a buffer so we can surface a short error in the TUI,
 		// while also tee'ing into the log file for the full record.

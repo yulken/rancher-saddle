@@ -98,6 +98,14 @@ func (m HelpModel) View() string {
 	s.WriteString(keyStyle.Render("  r         ") + descStyle.Render("Refresh now") + "\n")
 	s.WriteString(keyStyle.Render("  q         ") + descStyle.Render("Quit/Exit") + "\n")
 
+	// Credentials section
+	s.WriteString(sectionStyle.Render("Credentials") + "\n")
+	s.WriteString(keyStyle.Render("  ctrl+x    ") + descStyle.Render("Open credentials list") + "\n")
+	s.WriteString(keyStyle.Render("  n         ") + descStyle.Render("New credential (static keys or AWS SSO)") + "\n")
+	s.WriteString(keyStyle.Render("  r         ") + descStyle.Render("Refresh statuses (after logging in elsewhere)") + "\n")
+	s.WriteString(keyStyle.Render("  enter     ") + descStyle.Render("Edit selected credential") + "\n")
+	s.WriteString(keyStyle.Render("  d         ") + descStyle.Render("Delete selected credential") + "\n")
+
 	// Help section
 	s.WriteString(sectionStyle.Render("Help") + "\n")
 	s.WriteString(keyStyle.Render("  ?         ") + descStyle.Render("Toggle this help") + "\n")

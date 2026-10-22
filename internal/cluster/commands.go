@@ -12,6 +12,7 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/config"
 	"github.com/Felipalds/rancher-tui/internal/core"
+	"github.com/Felipalds/rancher-tui/internal/providers/aws"
 	"github.com/Felipalds/rancher-tui/internal/providers/libvirt"
 	"github.com/Felipalds/rancher-tui/internal/workflow"
 )
@@ -210,6 +211,16 @@ func DeleteCluster(name string, force bool) error {
 
 	fmt.Printf("Deleting cluster '%s'...\n", name)
 
+	// Preflight before touching any state: an expired SSO session would
+	// otherwise mark the cluster as "deleting" and then fail silently inside
+	// tofu destroy, which is the worst possible outcome for the user.
+	if cluster.Provider.Type == string(core.ProviderAWS) {
+		if err := aws.CheckSession(context.Background(), cluster.Provider.Config); err != nil {
+			return fmt.Errorf("cannot destroy cluster '%s': %w\n"+
+				"Run `aws sso login --profile %s` and try again", name, err, aws.Profile(cluster.Provider.Config))
+		}
+	}
+
 	// Update status to deleting
 	cluster.Status = "deleting"
 	cfg.AddCluster(name, cluster)
@@ -233,6 +244,9 @@ func DeleteCluster(name string, force bool) error {
 		fmt.Println("Destroying infrastructure...")
 		cmd := exec.Command("tofu", "destroy", "-auto-approve")
 		cmd.Dir = buildDir
+		if cluster.Provider.Type == string(core.ProviderAWS) {
+			cmd.Env = aws.EnvFor(cluster.Provider.Config)
+		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

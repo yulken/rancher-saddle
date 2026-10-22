@@ -157,32 +157,26 @@ func (m ClusterListModel) Update(msg tea.Msg) (ClusterListModel, tea.Cmd) {
 
 		case "x", "d":
 			// Delete selected cluster
-			if len(m.clusterNames) > 0 {
-				selectedRow := m.table.Cursor()
-				if selectedRow < len(m.clusterNames) {
-					clusterName := m.clusterNames[selectedRow]
-					return m, func() tea.Msg {
-						return StateChangeMsg{
-							NewState: StateDeleteConfirm,
-							Data:     clusterName,
-						}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.clusterNames) {
+				clusterName := m.clusterNames[row]
+				return m, func() tea.Msg {
+					return StateChangeMsg{
+						NewState: StateDeleteConfirm,
+						Data:     clusterName,
 					}
 				}
 			}
 
 		case "u":
 			// Upgrade Rancher on selected cluster
-			if len(m.clusterNames) > 0 {
-				selectedRow := m.table.Cursor()
-				if selectedRow < len(m.clusterNames) {
-					clusterName := m.clusterNames[selectedRow]
-					cluster := m.clusters[clusterName]
-					if cluster != nil && cluster.Rancher.Deploy && cluster.Status == "running" {
-						return m, func() tea.Msg {
-							return StateChangeMsg{
-								NewState: StateUpgradeForm,
-								Data:     clusterName,
-							}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.clusterNames) {
+				clusterName := m.clusterNames[row]
+				cluster := m.clusters[clusterName]
+				if cluster != nil && cluster.Rancher.Deploy && cluster.Status == "running" {
+					return m, func() tea.Msg {
+						return StateChangeMsg{
+							NewState: StateUpgradeForm,
+							Data:     clusterName,
 						}
 					}
 				}
@@ -194,23 +188,20 @@ func (m ClusterListModel) Update(msg tea.Msg) (ClusterListModel, tea.Cmd) {
 
 		case "enter":
 			// Toggle log viewing for selected cluster
-			if len(m.clusterNames) > 0 {
-				selectedRow := m.table.Cursor()
-				if selectedRow < len(m.clusterNames) {
-					clusterName := m.clusterNames[selectedRow]
-					if m.showLogs && m.selectedCluster == clusterName {
-						// Hide logs if already showing
-						m.showLogs = false
-						m.selectedCluster = ""
-						m.copyNotice = ""
-					} else {
-						// Show logs for this cluster
-						m.showLogs = true
-						m.selectedCluster = clusterName
-						m.copyNotice = ""
-					}
-					return m, nil
+			if row := m.table.Cursor(); row >= 0 && row < len(m.clusterNames) {
+				clusterName := m.clusterNames[row]
+				if m.showLogs && m.selectedCluster == clusterName {
+					// Hide logs if already showing
+					m.showLogs = false
+					m.selectedCluster = ""
+					m.copyNotice = ""
+				} else {
+					// Show logs for this cluster
+					m.showLogs = true
+					m.selectedCluster = clusterName
+					m.copyNotice = ""
 				}
+				return m, nil
 			}
 
 		case "y":
@@ -307,7 +298,7 @@ func (m *ClusterListModel) updateTable() {
 		})
 	}
 
-	m.table.SetRows(rows)
+	setTableRows(&m.table, rows)
 }
 
 // loadClusters loads clusters from config

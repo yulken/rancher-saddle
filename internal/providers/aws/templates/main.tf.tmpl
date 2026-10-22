@@ -8,9 +8,12 @@ terraform {
 }
 
 provider "aws" {
-  region     = "{{.Region}}"
-  access_key = "{{.AccessKey}}"
-  secret_key = "{{.SecretKey}}"
+  region  = "{{.Region}}"
+{{- if .Profile }}
+  profile = "{{.Profile}}"
+{{- end }}
+  # Credentials are supplied through the process environment by the workflow
+  # runner (static keys or an SSO profile). Never hardcode them here.
 }
 
 data "aws_ami" "ubuntu" {

@@ -75,6 +75,15 @@ func (r *ModularRunner) RunWithBuildDir(buildDir string) error {
 		return fmt.Errorf("provider validation failed: %w", err)
 	}
 
+	// Preflight: expired SSO sessions (or missing AWS CLI) fail here in seconds,
+	// instead of mid-apply once the provider needs to refresh credentials.
+	if checker, ok := r.Provider.(core.SessionChecker); ok {
+		fmt.Printf("Verifying %s credentials...\n", r.Provider.Name())
+		if err := checker.CheckSession(ctx, providerConfig); err != nil {
+			return fmt.Errorf("authentication preflight failed: %w", err)
+		}
+	}
+
 	// Step 1: Generate infrastructure code
 	fmt.Printf("Generating %s infrastructure configuration...\n", r.Provider.Name())
 
@@ -92,13 +101,14 @@ func (r *ModularRunner) RunWithBuildDir(buildDir string) error {
 
 	// Step 2: Initialize infrastructure tool (Terraform/Tofu)
 	fmt.Println("Initializing OpenTofu...")
-	if err := r.runCommand("tofu", []string{"init"}, buildDir); err != nil {
+	authEnv := r.providerAuthEnv(providerConfig)
+	if err := r.runCommand("tofu", []string{"init"}, buildDir, authEnv); err != nil {
 		return err
 	}
 
 	// Step 3: Apply infrastructure
 	fmt.Println("Applying OpenTofu plan (this may take a while)...")
-	if err := r.runCommand("tofu", []string{"apply", "-auto-approve"}, buildDir); err != nil {
+	if err := r.runCommand("tofu", []string{"apply", "-auto-approve"}, buildDir, authEnv); err != nil {
 		return err
 	}
 
@@ -146,7 +156,7 @@ func (r *ModularRunner) RunWithBuildDir(buildDir string) error {
 
 	// Step 8: Run playbook
 	fmt.Println("Running Ansible Playbook...")
-	if err := r.runCommand("ansible-playbook", []string{"-i", "hosts.ini", "site.yml"}, buildDir); err != nil {
+	if err := r.runCommand("ansible-playbook", []string{"-i", "hosts.ini", "site.yml"}, buildDir, nil); err != nil {
 		return err
 	}
 
@@ -239,10 +249,22 @@ func (r *ModularRunner) mergeOrchestratorConfig() map[string]interface{} {
 	return merged
 }
 
-// runCommand executes a command
-func (r *ModularRunner) runCommand(name string, args []string, dir string) error {
+// providerAuthEnv returns the process environment the provider needs for its
+// CLI tools, or nil when the provider has no opinion (inherit the parent env).
+func (r *ModularRunner) providerAuthEnv(providerConfig map[string]interface{}) []string {
+	if ep, ok := r.Provider.(core.AuthEnvProvider); ok {
+		return ep.AuthEnv(providerConfig)
+	}
+	return nil
+}
+
+// runCommand executes a command. A nil env inherits the parent environment.
+func (r *ModularRunner) runCommand(name string, args []string, dir string, env []string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = env
+	}
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)

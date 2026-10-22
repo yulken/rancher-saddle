@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -189,6 +190,64 @@ func TestClustersConfig_LoadSaveRoundTrip(t *testing.T) {
 	assert.Equal(t, true, got.Rancher.Deploy)
 	assert.Equal(t, 3, got.Cluster.InstanceCount)
 	assert.Equal(t, "running", got.Status)
+}
+
+func TestClustersConfig_SaveIsAtomicForReaders(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	cfg := &ClustersConfig{Clusters: make(map[string]*ClusterConfig)}
+	cfg.AddCluster("test", &ClusterConfig{Provider: ProviderSection{Type: "aws"}})
+	require.NoError(t, cfg.Save(path))
+
+	// Readers run while the writer keeps replacing the file. Because Save writes
+	// a temp file and renames it into place, a reader must never observe an
+	// empty or partial config (the TUI refreshes this every second, and a
+	// truncated read used to leave its table cursor at -1).
+	done := make(chan struct{})
+	readErr := make(chan error, 1)
+	go func() {
+		for {
+			select {
+			case <-done:
+				close(readErr)
+				return
+			default:
+			}
+
+			loaded, err := LoadClustersConfig(path)
+			if err != nil {
+				readErr <- err
+				return
+			}
+			if len(loaded.Clusters) == 0 {
+				readErr <- assert.AnError
+				return
+			}
+		}
+	}()
+
+	for i := 0; i < 200; i++ {
+		cfg.AddCluster("test", &ClusterConfig{Provider: ProviderSection{Type: "aws"}})
+		require.NoError(t, cfg.Save(path))
+	}
+	close(done)
+
+	for err := range readErr {
+		require.NoError(t, err, "reader observed an empty/partial config")
+	}
+}
+
+func TestClustersConfig_SaveKeepsOwnerOnlyPermissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	cfg := &ClustersConfig{Clusters: map[string]*ClusterConfig{"c": {}}}
+	require.NoError(t, cfg.Save(path))
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 }
 
 func TestClusterConfig_ToModernConfig_ImageTagAndDebug(t *testing.T) {

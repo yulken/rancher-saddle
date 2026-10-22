@@ -6,6 +6,10 @@ import (
 
 // AWSConfig holds AWS-specific configuration
 type AWSConfig struct {
+	// AuthMode is "static" (access key + secret) or "sso" (named profile).
+	AuthMode string
+	// Profile is the ~/.aws/config profile used when AuthMode is "sso".
+	Profile         string
 	AccessKey       string
 	SecretKey       string
 	Region          string
@@ -21,6 +25,8 @@ type AWSConfig struct {
 
 // FromMap creates AWSConfig from a map
 func (c *AWSConfig) FromMap(m map[string]interface{}) {
+	c.AuthMode = AuthMode(m)
+	c.Profile = Profile(m)
 	if v, ok := m["access_key"].(string); ok {
 		c.AccessKey = v
 	}

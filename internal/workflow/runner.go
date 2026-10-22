@@ -11,6 +11,7 @@ import (
 
 	"github.com/Felipalds/rancher-tui/internal/generator"
 	"github.com/Felipalds/rancher-tui/internal/model"
+	"github.com/Felipalds/rancher-tui/internal/providers/aws"
 	"github.com/Felipalds/rancher-tui/internal/utils"
 	"go.uber.org/zap"
 )
@@ -66,9 +67,12 @@ func NewRunner(cfg *model.Config) (*Runner, error) {
 	}, nil
 }
 
-func (r *Runner) runCommand(name string, args []string, dir string) error {
+func (r *Runner) runCommand(name string, args []string, dir string, env []string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = env
+	}
 
 	// We capture combined output for logging
 	output, err := cmd.CombinedOutput()
@@ -123,12 +127,12 @@ func (r *Runner) RunWithBuildDir(buildDir string) error {
 	}
 
 	fmt.Println("Initializing OpenTofu...")
-	if err := r.runCommand("tofu", []string{"init"}, buildDir); err != nil {
+	if err := r.runCommand("tofu", []string{"init"}, buildDir, aws.EnvForStatic(r.Config.AWSAccessKey, r.Config.AWSSecretKey)); err != nil {
 		return err
 	}
 
 	fmt.Println("Applying OpenTofu plan (this may take a while)...")
-	if err := r.runCommand("tofu", []string{"apply", "-auto-approve"}, buildDir); err != nil {
+	if err := r.runCommand("tofu", []string{"apply", "-auto-approve"}, buildDir, aws.EnvForStatic(r.Config.AWSAccessKey, r.Config.AWSSecretKey)); err != nil {
 		return err
 	}
 
@@ -205,7 +209,7 @@ func (r *Runner) RunWithBuildDir(buildDir string) error {
 	}
 
 	fmt.Println("Running Ansible Playbook...")
-	if err := r.runCommand("ansible-playbook", []string{"-i", "hosts.ini", "site.yml"}, buildDir); err != nil {
+	if err := r.runCommand("ansible-playbook", []string{"-i", "hosts.ini", "site.yml"}, buildDir, nil); err != nil {
 		return err
 	}
 

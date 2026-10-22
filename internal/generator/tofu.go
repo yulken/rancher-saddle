@@ -19,9 +19,9 @@ terraform {
 }
 
 provider "aws" {
-  region     = "{{.AWSRegion}}"
-  access_key = "{{.AWSAccessKey}}"
-  secret_key = "{{.AWSSecretKey}}"
+  region = "{{.AWSRegion}}"
+  # Credentials come from the process environment (see aws.EnvFor). They are
+  # intentionally not rendered here.
 }
 
 data "aws_ami" "ubuntu" {

@@ -636,6 +636,11 @@ func (m CreateFormModel) Update(msg tea.Msg) (CreateFormModel, tea.Cmd) {
 		case "left":
 			// For select fields, move to previous option
 			if m.focusIndex < len(m.fields) && m.fields[m.focusIndex].fieldType == FieldSelect {
+				// A field with no options (e.g. an empty credential store) must not
+				// be driven to -1: the submit path indexes options[selected].
+				if len(m.fields[m.focusIndex].options) == 0 {
+					return m, nil
+				}
 				m.fields[m.focusIndex].selected--
 				if m.fields[m.focusIndex].selected < 0 {
 					m.fields[m.focusIndex].selected = len(m.fields[m.focusIndex].options) - 1
@@ -1031,7 +1036,8 @@ func (m CreateFormModel) handleLocalSubmit() (CreateFormModel, tea.Cmd) {
 func (m CreateFormModel) createCluster(name, provider, credential, distro, version,
 	region, subnet, securityGroup, ami, instanceType, nodePrefix string, instanceCount int,
 	sshKeyName, sshPrivateKeyPath, sshUser string, deployRancher, rancherPrime bool, rancherVersion, bootstrapPassword string,
-	imageTag string, debugMode bool) tea.Cmd {
+	imageTag string, debugMode bool,
+) tea.Cmd {
 	return func() tea.Msg {
 		// Load clusters config
 		cfg, err := config.LoadClustersConfig("config.yaml")
@@ -1050,24 +1056,32 @@ func (m CreateFormModel) createCluster(name, provider, credential, distro, versi
 			return clusterCreationErrorMsg{err: fmt.Errorf("credential not found: %w", err)}
 		}
 
+		providerConfig := map[string]interface{}{
+			"region":            region,
+			"instance_type":     instanceType,
+			"subnet_id":         subnet,
+			"security_group_id": securityGroup,
+			"ami":               ami,
+		}
+		if awsCred.AuthType() == core.AuthSSO {
+			providerConfig["auth"] = core.AuthSSO
+			providerConfig["profile"] = awsCred.Profile
+		} else {
+			providerConfig["auth"] = core.AuthStatic
+			providerConfig["access_key"] = awsCred.AccessKey
+			providerConfig["secret_key"] = awsCred.SecretKey
+		}
+
 		// Create cluster configuration
 		cluster := &config.ClusterConfig{
 			Provider: config.ProviderSection{
-				Type: strings.ToLower(provider),
-				Config: map[string]interface{}{
-					"region":            region,
-					"instance_type":     instanceType,
-					"subnet_id":         subnet,
-					"security_group_id": securityGroup,
-					"ami":               ami,
-					"access_key":        awsCred.AccessKey,
-					"secret_key":        awsCred.SecretKey,
-				},
+				Type:   strings.ToLower(provider),
+				Config: providerConfig,
 			},
 			Kubernetes: config.KubernetesSection{
 				Distribution: strings.ToLower(distro),
 				Config: map[string]interface{}{
-					"version": version,
+					"rke2_version": version,
 				},
 			},
 			SSH: config.SSHSection{
@@ -1276,7 +1290,9 @@ func (m *CreateFormModel) prevVisibleFieldOrApply(from int) int {
 
 func (m CreateFormModel) loadCredentials() tea.Cmd {
 	return func() tea.Msg {
-		creds, _ := credentials.LoadCredentials("cloud-credentials.yaml")
+		// Same first-run import as the credentials list, so going straight to
+		// "Create" after installing still shows the SSO profiles.
+		creds, _, _ := loadCredentialsWithDiscovery(credentialsPath)
 		return credentialsLoadedForWizardMsg{credentials: creds}
 	}
 }
@@ -1449,7 +1465,8 @@ func (m CreateFormModel) renderProfileSelector(baseView string) string {
 	selectorBox := selectorStyle.Render(selector)
 
 	// Overlay the selector in the center
-	return lipgloss.Place(m.width, m.height,
+	return lipgloss.Place(
+		m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
 		selectorBox,
 		lipgloss.WithWhitespaceChars(" "),
@@ -1461,7 +1478,7 @@ func (m CreateFormModel) renderProfileSelector(baseView string) string {
 func deployCluster(name string, clusterConfig *config.ClusterConfig) {
 	// Create log file for this deployment
 	logPath := fmt.Sprintf("logs/%s.log", name)
-	os.MkdirAll("logs", 0755)
+	os.MkdirAll("logs", 0o755)
 
 	// Create log file
 	logFile, err := os.Create(logPath)
@@ -1492,7 +1509,7 @@ func deployCluster(name string, clusterConfig *config.ClusterConfig) {
 
 	// Create build directory for this cluster
 	buildDir := filepath.Join("clusters", name)
-	if err := os.MkdirAll(buildDir, 0755); err != nil {
+	if err := os.MkdirAll(buildDir, 0o755); err != nil {
 		writeLog(fmt.Sprintf("ERROR: Failed to create build directory: %v", err))
 		updateClusterStatus(name, "failed")
 		return

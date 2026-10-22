@@ -73,6 +73,23 @@ type ProviderWithCustomApply interface {
 	CustomApply(ctx context.Context, config map[string]interface{}, buildDir string, logWriter io.Writer) (*InfrastructureOutputs, error)
 }
 
+// SessionChecker is an optional interface a Provider can implement when AWS-style
+// (or other cloud) credentials must be validated before any infrastructure work
+// starts. The workflow runner calls it as a cheap preflight so an expired SSO
+// session fails in seconds instead of in the middle of a `tofu apply`.
+type SessionChecker interface {
+	// CheckSession returns nil when the configured credentials can authenticate.
+	CheckSession(ctx context.Context, config map[string]interface{}) error
+}
+
+// AuthEnvProvider is an optional interface a Provider can implement to expose
+// the environment variables that tools like `tofu` must run with. Returning nil
+// means "inherit the parent environment".
+type AuthEnvProvider interface {
+	// AuthEnv returns KEY=VALUE pairs for child processes.
+	AuthEnv(config map[string]interface{}) []string
+}
+
 // Generator interface for code generation (Terraform, Ansible, etc.)
 type Generator interface {
 	// Generate generates code from templates

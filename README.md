@@ -22,10 +22,14 @@ Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS
 - [OpenTofu](https://opentofu.org/) (or Terraform) - `tofu` command in PATH
 - [Ansible](https://www.ansible.com/) - `ansible-playbook` command in PATH
 - Go 1.24.9+
+- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) - **only required for AWS SSO authentication**
 - AWS Account with appropriate permissions
 
 ### AWS Requirements
-- Valid AWS access key and secret key
+- Credentials for the target account, using one of:
+  - **AWS SSO (recommended)** — an IAM Identity Center profile configured in `~/.aws/config`
+    (`aws configure sso`). No keys are stored by this tool.
+  - **Static IAM keys** — an access key / secret key pair
 - Existing VPC with subnet
 - Security group with required ports:
   - SSH (22)
@@ -33,6 +37,26 @@ Automated deployment tool for Kubernetes clusters (RKE2/K3s) with Rancher on AWS
   - Kubernetes API (6443)
   - RKE2 supervisor (9345) / K3s (10250)
 - EC2 key pair for SSH access
+
+### AWS SSO Quick Start
+
+```bash
+aws configure sso --profile acme-prod   # once, if you do not have a profile yet
+aws sso login --profile acme-prod       # or `rancher-tui sso login -p acme-prod`
+rancher-tui sso status                  # show login status for every SSO profile
+```
+
+Then open the TUI. On first run (no `cloud-credentials.yaml` yet) every SSO profile
+from `~/.aws/config` is imported automatically as an `AWS SSO` credential, so the
+credentials screen and the create wizard show them right away. To add one manually:
+`Ctrl+X` → `n` → set **Type** to `AWS SSO` → choose the profile.
+The profile name is stored in `cloud-credentials.yaml` and in `config.yaml`; the
+credentials themselves stay in `~/.aws/sso/cache`.
+
+SSO sessions expire (8h by default in Identity Center). `tofu apply` and
+`tofu destroy` both fail fast with a remediation message when the session is gone.
+The credentials screen shows how long the cached token for the selected profile is
+still valid; press `r` there to re-probe after logging in from another terminal.
 
 ## Installation
 
@@ -174,8 +198,8 @@ When **standard Rancher** (default):
 
 | File | Purpose |
 |------|---------|
-| `config.yaml` | Cluster configurations (auto-generated, contains secrets - 0600) |
-| `cloud-credentials.yaml` | Saved AWS credentials (0600) |
+| `config.yaml` | Cluster configurations (auto-generated - 0600; contains keys only for static-auth clusters) |
+| `cloud-credentials.yaml` | Saved credentials (0600; SSO entries contain a profile name, not secrets) |
 | `profiles.yaml` | Saved infrastructure profiles (0600) |
 | `amis.yaml` | AMI catalog - distro/region/AMI-ID mappings |
 | `clusters/<name>/` | Per-cluster build directory (Terraform state, playbooks) |
@@ -240,7 +264,7 @@ Tests use [testify](https://github.com/stretchr/testify) with table-driven patte
 
 ## Security Considerations
 
-- `config.yaml` and `cloud-credentials.yaml` contain secrets - never commit to git
+- `config.yaml` and `cloud-credentials.yaml` may contain static IAM keys; SSO mode stores only profile names. Never commit either file.
 - All credential files use 0600 permissions
 - SSH private keys should have 0600 permissions
 - Use restrictive security groups in production

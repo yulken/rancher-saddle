@@ -27,6 +27,14 @@ const (
 	OrchestratorHarvester OrchestratorType = "harvester"
 )
 
+// Authentication modes for cloud providers.
+const (
+	// AuthStatic uses a long-lived access key / secret key pair.
+	AuthStatic = "static"
+	// AuthSSO uses an AWS IAM Identity Center profile resolved from ~/.aws/config.
+	AuthSSO = "sso"
+)
+
 // FormField represents a configuration field for TUI forms
 type FormField struct {
 	Name        string

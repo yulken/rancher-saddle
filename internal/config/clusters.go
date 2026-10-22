@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -101,9 +102,32 @@ func (c *ClustersConfig) Save(path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	// File permission 0600 because it contains secrets
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	// Write to a temporary file in the same directory and rename it into place.
+	// os.WriteFile truncates the target first, so a reader (the TUI refreshes the
+	// cluster list every second) could see an empty or half-written config and
+	// render a cluster list with no rows.
+	//
+	// File permission 0600 because it contains secrets.
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp config file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // no-op once the rename succeeded
+
+	if err := tmp.Chmod(0600); err != nil {
+		tmp.Close()
+		return fmt.Errorf("failed to set config permissions: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
 		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close config file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("failed to replace config file: %w", err)
 	}
 
 	return nil

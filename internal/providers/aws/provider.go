@@ -33,6 +33,18 @@ func (p *Provider) Validate(config map[string]interface{}) error {
 	return Validate(config)
 }
 
+// AuthEnv exposes the environment `tofu` must run with for the configured auth
+// mode. Static keys are never rendered into the generated HCL.
+func (p *Provider) AuthEnv(config map[string]interface{}) []string {
+	return EnvFor(config)
+}
+
+// CheckSession verifies SSO credentials before any infrastructure work starts.
+// Static credentials are validated by the provider itself during apply.
+func (p *Provider) CheckSession(ctx context.Context, config map[string]interface{}) error {
+	return CheckSession(ctx, config)
+}
+
 // GenerateInfrastructure generates Terraform configuration for AWS
 func (p *Provider) GenerateInfrastructure(ctx context.Context, config map[string]interface{}, outputDir string) error {
 	// Parse AWS config

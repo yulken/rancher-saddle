@@ -75,26 +75,20 @@ func (m AMIsListModel) Update(msg tea.Msg) (AMIsListModel, tea.Cmd) {
 			}
 
 		case "enter":
-			if len(m.entries) > 0 {
-				row := m.table.Cursor()
-				if row < len(m.entries) {
-					e := m.entries[row]
-					return m, func() tea.Msg {
-						return StateChangeMsg{
-							NewState: StateAMIsForm,
-							Data:     e.Distro + "|" + e.Region,
-						}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.entries) {
+				e := m.entries[row]
+				return m, func() tea.Msg {
+					return StateChangeMsg{
+						NewState: StateAMIsForm,
+						Data:     e.Distro + "|" + e.Region,
 					}
 				}
 			}
 
 		case "d":
-			if len(m.entries) > 0 {
-				row := m.table.Cursor()
-				if row < len(m.entries) {
-					e := m.entries[row]
-					return m, m.deleteEntry(e.Distro, e.Region)
-				}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.entries) {
+				e := m.entries[row]
+				return m, m.deleteEntry(e.Distro, e.Region)
 			}
 
 		case "esc":
@@ -148,7 +142,7 @@ func (m *AMIsListModel) updateTable() {
 	for _, e := range m.entries {
 		rows = append(rows, table.Row{e.Distro, e.Region, e.AMIID})
 	}
-	m.table.SetRows(rows)
+	setTableRows(&m.table, rows)
 }
 
 func (m AMIsListModel) loadAMIs() tea.Cmd {

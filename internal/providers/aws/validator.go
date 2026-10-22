@@ -2,17 +2,26 @@ package aws
 
 import (
 	"fmt"
+
+	"github.com/Felipalds/rancher-tui/internal/core"
 )
 
-// Validate validates AWS-specific configuration
+// Validate validates AWS-specific configuration. Credential requirements depend
+// on the authentication mode: static auth needs a key pair, SSO needs a profile.
 func Validate(config map[string]interface{}) error {
-	// Required fields
 	requiredFields := []string{
-		"access_key",
-		"secret_key",
 		"region",
 		"subnet_id",
 		"security_group_id",
+	}
+
+	switch AuthMode(config) {
+	case core.AuthSSO:
+		if Profile(config) == "" {
+			return fmt.Errorf("AWS config: 'profile' is required when auth is '%s'", core.AuthSSO)
+		}
+	default:
+		requiredFields = append(requiredFields, "access_key", "secret_key")
 	}
 
 	for _, field := range requiredFields {

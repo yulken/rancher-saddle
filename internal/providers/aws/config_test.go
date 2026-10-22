@@ -100,3 +100,35 @@ func TestGetDefaultConfig(t *testing.T) {
 	assert.Equal(t, "t3.xlarge", defaults["instance_type"])
 	assert.Equal(t, 20, defaults["root_volume_size"])
 }
+
+func TestAWSConfig_FromMap_SSO(t *testing.T) {
+	cfg := &AWSConfig{}
+	cfg.FromMap(map[string]interface{}{
+		"auth":              "sso",
+		"profile":           "acme-prod",
+		"region":            "eu-west-1",
+		"subnet_id":         "subnet-abc",
+		"security_group_id": "sg-def",
+		// Keys from a legacy entry must not leak into SSO mode's decisions.
+		"access_key": "AKIA-STALE",
+		"secret_key": "stale",
+	})
+
+	assert.Equal(t, "sso", cfg.AuthMode)
+	assert.Equal(t, "acme-prod", cfg.Profile)
+	assert.Equal(t, "eu-west-1", cfg.Region)
+}
+
+func TestAWSConfig_FromMap_DefaultsToStaticAuth(t *testing.T) {
+	cfg := &AWSConfig{}
+	cfg.FromMap(map[string]interface{}{
+		"access_key":        "AKIA123",
+		"secret_key":        "secret",
+		"region":            "us-east-1",
+		"subnet_id":         "subnet-abc",
+		"security_group_id": "sg-def",
+	})
+
+	assert.Equal(t, "static", cfg.AuthMode)
+	assert.Empty(t, cfg.Profile)
+}

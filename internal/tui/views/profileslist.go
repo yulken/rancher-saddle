@@ -81,25 +81,19 @@ func (m ProfilesListModel) Update(msg tea.Msg) (ProfilesListModel, tea.Cmd) {
 
 		case "d":
 			// Delete selected profile
-			if len(m.profileNames) > 0 {
-				selectedRow := m.table.Cursor()
-				if selectedRow < len(m.profileNames) {
-					profileName := m.profileNames[selectedRow]
-					return m, m.deleteProfile(profileName)
-				}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.profileNames) {
+				profileName := m.profileNames[row]
+				return m, m.deleteProfile(profileName)
 			}
 
 		case "enter":
 			// Edit selected profile
-			if len(m.profileNames) > 0 {
-				selectedRow := m.table.Cursor()
-				if selectedRow < len(m.profileNames) {
-					profileName := m.profileNames[selectedRow]
-					return m, func() tea.Msg {
-						return StateChangeMsg{
-							NewState: StateProfilesForm,
-							Data:     profileName,
-						}
+			if row := m.table.Cursor(); row >= 0 && row < len(m.profileNames) {
+				profileName := m.profileNames[row]
+				return m, func() tea.Msg {
+					return StateChangeMsg{
+						NewState: StateProfilesForm,
+						Data:     profileName,
 					}
 				}
 			}
@@ -172,7 +166,7 @@ func (m *ProfilesListModel) updateTable() {
 		})
 	}
 
-	m.table.SetRows(rows)
+	setTableRows(&m.table, rows)
 }
 
 // loadProfiles loads profiles from file

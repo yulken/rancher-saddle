@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Felipalds/rancher-tui/internal/config"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -90,4 +91,50 @@ func TestClusterList_ShowLogsFor(t *testing.T) {
 	m.ShowLogsFor("b")
 	assert.True(t, m.showLogs)
 	assert.Equal(t, "b", m.selectedCluster)
+}
+
+// Regression: a refresh that sees config.yaml mid-write empties the table and
+// leaves the cursor at -1. The next key press then indexed clusterNames[-1] and
+// panicked with "index out of range [-1]" (seen right after a deploy started).
+func TestClusterList_EmptyRefreshThenKeyDoesNotPanic(t *testing.T) {
+	m := NewClusterListModel()
+
+	// Startup load: no clusters.
+	m, _ = m.Update(clustersLoadedMsg{
+		clusters: map[string]*config.ClusterConfig{},
+		names:    []string{},
+	})
+
+	// Deploy wrote config.yaml; the list now has the cluster.
+	m, _ = m.Update(clustersLoadedMsg{
+		clusters: map[string]*config.ClusterConfig{"test": {Status: "creating"}},
+		names:    []string{"test"},
+	})
+
+	assert.Equal(t, 0, m.table.Cursor())
+
+	// Toggle logs on the selected cluster: must select "test", not panic.
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.True(t, m.showLogs)
+	assert.Equal(t, "test", m.selectedCluster)
+}
+
+func TestClusterList_KeysWithNoRowsAreIgnored(t *testing.T) {
+	m := NewClusterListModel()
+	m, _ = m.Update(clustersLoadedMsg{
+		clusters: map[string]*config.ClusterConfig{},
+		names:    []string{},
+	})
+
+	for _, key := range []tea.KeyMsg{
+		{Type: tea.KeyEnter},
+		{Type: tea.KeyRunes, Runes: []rune("d")},
+		{Type: tea.KeyRunes, Runes: []rune("u")},
+		{Type: tea.KeyRunes, Runes: []rune("y")},
+	} {
+		m, _ = m.Update(key)
+	}
+
+	assert.False(t, m.showLogs)
+	assert.Empty(t, m.selectedCluster)
 }

@@ -4,7 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Felipalds/rancher-tui/internal/core"
 	"gopkg.in/yaml.v3"
+)
+
+// Authentication modes, re-exported for callers of this package.
+const (
+	AuthStatic = core.AuthStatic
+	AuthSSO    = core.AuthSSO
 )
 
 const defaultCredentialsPath = "cloud-credentials.yaml"
@@ -17,10 +24,26 @@ type CloudCredentials struct {
 
 // AWSCredential represents AWS access credentials
 type AWSCredential struct {
-	Name          string `yaml:"name"`
-	AccessKey     string `yaml:"access_key"`
-	SecretKey     string `yaml:"secret_key"`
+	Name string `yaml:"name"`
+	// Type is "static" (default when empty, for backward compatibility) or "sso".
+	Type string `yaml:"type,omitempty"`
+	// Static credentials (Type == "static").
+	AccessKey string `yaml:"access_key,omitempty"`
+	SecretKey string `yaml:"secret_key,omitempty"`
+	// SSO credentials (Type == "sso"). Profile points at ~/.aws/config; the other
+	// two are informational metadata copied from that profile for display.
+	Profile       string `yaml:"profile,omitempty"`
+	SSOStartURL   string `yaml:"sso_start_url,omitempty"`
+	SSORegion     string `yaml:"sso_region,omitempty"`
 	DefaultRegion string `yaml:"default_region,omitempty"`
+}
+
+// AuthType returns the credential type, defaulting legacy entries to static.
+func (a *AWSCredential) AuthType() string {
+	if a.Type == "" {
+		return AuthStatic
+	}
+	return a.Type
 }
 
 // LoadCredentials loads credentials from file
@@ -120,11 +143,22 @@ func (a *AWSCredential) Validate() error {
 	if a.Name == "" {
 		return fmt.Errorf("credential name is required")
 	}
-	if a.AccessKey == "" {
-		return fmt.Errorf("AWS access key is required")
+
+	switch a.AuthType() {
+	case AuthSSO:
+		if a.Profile == "" {
+			return fmt.Errorf("SSO profile is required")
+		}
+	case AuthStatic:
+		if a.AccessKey == "" {
+			return fmt.Errorf("AWS access key is required")
+		}
+		if a.SecretKey == "" {
+			return fmt.Errorf("AWS secret key is required")
+		}
+	default:
+		return fmt.Errorf("unknown credential type '%s'", a.Type)
 	}
-	if a.SecretKey == "" {
-		return fmt.Errorf("AWS secret key is required")
-	}
+
 	return nil
 }

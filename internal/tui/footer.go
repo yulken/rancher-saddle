@@ -118,6 +118,10 @@ var (
 			key.WithKeys("d"),
 			key.WithHelp("d", "delete"),
 		),
+		Refresh: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "refresh status"),
+		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),

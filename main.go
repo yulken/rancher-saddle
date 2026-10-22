@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"time"
 
 	"github.com/Felipalds/rancher-tui/cmd"
 	"github.com/Felipalds/rancher-tui/internal/cluster"
@@ -159,12 +162,77 @@ func main() {
 		},
 	}
 
+	// SSO command group
+	var ssoProfile string
+	var ssoDeviceCode bool
+
+	var ssoLoginCmd = &cobra.Command{
+		Use:   "login",
+		Short: "Authenticate an AWS SSO profile (delegates to `aws sso login`)",
+		Run: func(c *cobra.Command, args []string) {
+			cliArgs := []string{"sso", "login", "--profile", ssoProfile}
+			if ssoDeviceCode {
+				cliArgs = append(cliArgs, "--use-device-code")
+			}
+			cmd := exec.Command("aws", cliArgs...)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("✓ Logged in to %q\n", ssoProfile)
+		},
+	}
+	ssoLoginCmd.Flags().StringVarP(&ssoProfile, "profile", "p", "", "AWS profile name")
+	ssoLoginCmd.Flags().BoolVar(&ssoDeviceCode, "device-code", false, "Use the device authorization flow (no local browser)")
+	_ = ssoLoginCmd.MarkFlagRequired("profile")
+
+	var ssoStatusCmd = &cobra.Command{
+		Use:   "status",
+		Short: "Show the login status of AWS SSO profiles",
+		Run: func(c *cobra.Command, args []string) {
+			profiles, err := aws.ListSSOProfiles()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if ssoProfile != "" {
+				profiles = filterProfiles(profiles, ssoProfile)
+				if len(profiles) == 0 {
+					fmt.Fprintf(os.Stderr, "Profile %q is not configured for SSO in %s\n", ssoProfile, aws.DefaultAWSConfigPath())
+					os.Exit(1)
+				}
+			}
+			if len(profiles) == 0 {
+				fmt.Printf("No SSO profiles found in %s\n", aws.DefaultAWSConfigPath())
+				return
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			for _, p := range profiles {
+				fmt.Printf("%-24s %s\n", p.Name, aws.DescribeSession(ctx, p.Name))
+			}
+		},
+	}
+	ssoStatusCmd.Flags().StringVarP(&ssoProfile, "profile", "p", "", "Limit output to one profile")
+
+	var ssoCmd = &cobra.Command{
+		Use:   "sso",
+		Short: "AWS IAM Identity Center helpers",
+	}
+	ssoCmd.AddCommand(ssoLoginCmd, ssoStatusCmd)
+
 	// Add commands to root
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(listProvidersCmd)
 	rootCmd.AddCommand(listOrchestratorsCmd)
+	rootCmd.AddCommand(ssoCmd)
 
 	// Flags for root command (shared)
 	rootCmd.Flags().StringVarP(&clusterName, "name", "n", "", "Cluster name")
@@ -174,4 +242,15 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+// filterProfiles keeps only the named profile.
+func filterProfiles(profiles []aws.SSOProfile, name string) []aws.SSOProfile {
+	out := make([]aws.SSOProfile, 0, 1)
+	for _, p := range profiles {
+		if p.Name == name {
+			out = append(out, p)
+		}
+	}
+	return out
 }

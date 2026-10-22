@@ -14,7 +14,7 @@ rancher-tui follows a **Provider/Orchestrator** pattern. Cloud providers (AWS) h
 +-------------------------------------+
 |      Configuration Layer            |
 |  config.yaml      (clusters)        |
-|  cloud-credentials.yaml (secrets)   |
+|  cloud-credentials.yaml (AWS creds) |
 |  profiles.yaml    (infra presets)   |
 |  amis.yaml        (AMI catalog)     |
 +-----------------+-------------------+
@@ -56,7 +56,7 @@ internal/
 │   ├── interfaces.go # Provider, Orchestrator, Generator interfaces
 │   ├── registry.go   # Thread-safe component registry
 │   └── types.go      # ProviderType, OrchestratorType, FormField, InfrastructureOutputs
-├── credentials/      # AWS credential file management
+├── credentials/      # AWS credential store (static keys + SSO profile refs)
 ├── generator/        # Go text/template renderer
 │   └── renderer.go   # Render, RenderString, RenderWithFuncs
 ├── orchestrators/
@@ -107,6 +107,24 @@ type Provider interface {
 }
 ```
 
+### Authentication hooks (optional interfaces)
+
+Providers may additionally implement:
+
+```go
+type SessionChecker interface {
+    CheckSession(ctx context.Context, config map[string]interface{}) error
+}
+
+type AuthEnvProvider interface {
+    AuthEnv(config map[string]interface{}) []string
+}
+```
+
+`SessionChecker` runs as a preflight before any infrastructure work (used by AWS to
+fail fast on an expired SSO session). `AuthEnvProvider` supplies the environment for
+`tofu` — credentials are never rendered into generated HCL.
+
 ### Orchestrator (internal/core/interfaces.go)
 
 ```go
@@ -120,6 +138,31 @@ type Orchestrator interface {
     GetModules() []Module
 }
 ```
+
+## Authentication
+
+Two AWS authentication modes are supported, selected per credential and recorded
+per cluster in `provider.config`:
+
+| Mode | Stored where | `tofu` receives |
+|---|---|---|
+| `static` | keys in `cloud-credentials.yaml` / `config.yaml` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
+| `sso` | only the **profile name** (the token cache lives in `~/.aws/sso/cache`) | `AWS_PROFILE` |
+
+Generated HCL never contains credentials: `provider "aws"` gets `profile = "..."` in
+SSO mode, and the environment is built by `internal/providers/aws/auth.go::EnvFor`,
+which also scrubs inherited `AWS_*` static variables (they would otherwise take
+precedence over `profile`).
+
+Flow:
+
+1. `credentialsform` writes a credential of type `static` or `sso`.
+2. `credentialslist` shows SSO session status and the cached token lifetime; `r`
+   refreshes both. Login happens outside the TUI (`aws sso login`).
+3. The create form stores `auth` + `profile` (SSO) or keys (static) in `config.yaml`.
+4. `ModularRunner` runs the `SessionChecker` preflight, then `tofu init/apply` with
+   `AuthEnv`.
+5. `tofu destroy` (CLI and TUI) applies the same preflight and environment.
 
 ## Data Flows
 
@@ -200,7 +243,19 @@ clusters:
   <name>:
     provider:
       type: aws
-      config: { region, instance_type, subnet_id, security_group_id, ami, access_key, secret_key }
+      config:
+        # SSO clusters:
+        auth: sso
+        profile: acme-prod
+        # Static clusters (legacy and explicit):
+        # auth: static
+        # access_key: AKIA...
+        # secret_key: ...
+        region: us-east-1
+        instance_type: t3.xlarge
+        subnet_id: subnet-...
+        security_group_id: sg-...
+        ami: ami-...
     kubernetes:
       distribution: rke2  # or k3s
       config: { version }
