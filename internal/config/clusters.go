@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -142,8 +143,76 @@ func (c *ClustersConfig) ListClusters() []string {
 	return names
 }
 
+// VersionKeyFor returns the orchestrator config key that holds the Kubernetes
+// version for the given distribution. The orchestrators only read their own
+// key, so anything written under a different one is silently ignored.
+func VersionKeyFor(distribution string) string {
+	switch strings.ToLower(distribution) {
+	case "rke2":
+		return "rke2_version"
+	case "k3s":
+		return "k3s_version"
+	case "harvester":
+		return "harvester_version"
+	default:
+		return "version"
+	}
+}
+
+// rancherConfigKeys live in the orchestrator config map while a deployment runs
+// but are persisted under the Rancher section of a ClusterConfig.
+var rancherConfigKeys = []string{
+	"rancher_version",
+	"deploy_rancher",
+	"rancher_prime",
+	"rancher_bootstrap_password",
+	"rancher_image_tag",
+	"rancher_debug",
+}
+
+// copyConfigMap returns a shallow copy so callers can add or remove keys
+// without mutating the cluster config (and, through it, config.yaml).
+func copyConfigMap(in map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(in)+len(rancherConfigKeys))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// normalizeVersionKey copies the legacy "version" key into the key the
+// orchestrator actually reads. Earlier builds of the create form stored the
+// Kubernetes version under "version", which made every deployment fall back to
+// the hardcoded default.
+func normalizeVersionKey(config map[string]interface{}, distribution string) {
+	key := VersionKeyFor(distribution)
+	if key == "version" {
+		return
+	}
+	if _, ok := config[key]; ok {
+		return
+	}
+	if v, ok := config["version"].(string); ok && v != "" {
+		config[key] = v
+	}
+}
+
+// orchestratorSpecificConfig drops the Rancher keys from an orchestrator config
+// map so they are not duplicated under kubernetes.config when the cluster is
+// written back to config.yaml.
+func orchestratorSpecificConfig(in map[string]interface{}) map[string]interface{} {
+	out := copyConfigMap(in)
+	for _, key := range rancherConfigKeys {
+		delete(out, key)
+	}
+	return out
+}
+
 // ToModernConfig converts a ClusterConfig to the modern Config format for workflows
 func (cc *ClusterConfig) ToModernConfig() *Config {
+	orchestratorConfig := copyConfigMap(cc.Kubernetes.Config)
+	normalizeVersionKey(orchestratorConfig, cc.Kubernetes.Distribution)
+
 	cfg := &Config{
 		Provider:           cc.Provider.Type,
 		Orchestrator:       cc.Kubernetes.Distribution,
@@ -153,14 +222,10 @@ func (cc *ClusterConfig) ToModernConfig() *Config {
 		SSHPrivateKeyPath:  cc.SSH.PrivateKeyPath,
 		SSHUser:            cc.SSH.User,
 		ProviderConfig:     cc.Provider.Config,
-		OrchestratorConfig: cc.Kubernetes.Config,
+		OrchestratorConfig: orchestratorConfig,
 		Addons:             []string{},
 	}
 
-	// Add Rancher config to orchestrator config
-	if cfg.OrchestratorConfig == nil {
-		cfg.OrchestratorConfig = make(map[string]interface{})
-	}
 	cfg.OrchestratorConfig["rancher_version"] = cc.Rancher.Version
 	cfg.OrchestratorConfig["deploy_rancher"] = cc.Rancher.Deploy
 	cfg.OrchestratorConfig["rancher_prime"] = cc.Rancher.Prime
@@ -180,7 +245,7 @@ func FromModernConfig(cfg *Config) *ClusterConfig {
 		},
 		Kubernetes: KubernetesSection{
 			Distribution: cfg.Orchestrator,
-			Config:       cfg.OrchestratorConfig,
+			Config:       orchestratorSpecificConfig(cfg.OrchestratorConfig),
 		},
 		SSH: SSHSection{
 			KeyName:        cfg.SSHKeyName,

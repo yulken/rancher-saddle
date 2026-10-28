@@ -381,10 +381,13 @@ func (r *ModularRunner) displaySuccess(outputs *core.InfrastructureOutputs) {
 	fmt.Printf("   - Nodes: %d\n", len(outputs.InstanceIPs))
 
 	// Display orchestrator version if available
-	if version, ok := r.Config.OrchestratorConfig["rke2_version"].(string); ok {
+	if version, ok := r.Config.OrchestratorConfig["rke2_version"].(string); ok && version != "" {
 		fmt.Printf("   - RKE2 Version: %s\n", version)
 	}
-	if version, ok := r.Config.OrchestratorConfig["rancher_version"].(string); ok {
+	if version, ok := r.Config.OrchestratorConfig["k3s_version"].(string); ok && version != "" {
+		fmt.Printf("   - K3s Version: %s\n", version)
+	}
+	if version, ok := r.Config.OrchestratorConfig["rancher_version"].(string); ok && version != "" {
 		fmt.Printf("   - Rancher Version: %s\n", version)
 	}
 

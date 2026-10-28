@@ -18,10 +18,23 @@ type RKE2Config struct {
 	AddonTasks        string
 }
 
+const (
+	defaultVersion           = "v1.33.7+rke2r1"
+	defaultRancherVersion    = "2.10.2"
+	defaultBootstrapPassword = "admin"
+)
+
 // FromMap creates RKE2Config from a map
 func (c *RKE2Config) FromMap(m map[string]interface{}) {
-	if v, ok := m["rke2_version"].(string); ok {
+	if v, ok := m["rke2_version"].(string); ok && v != "" {
 		c.RKE2Version = v
+	}
+	// Older builds stored the Kubernetes version under the generic "version"
+	// key. Honour it instead of silently deploying the default.
+	if c.RKE2Version == "" {
+		if v, ok := m["version"].(string); ok && v != "" {
+			c.RKE2Version = v
+		}
 	}
 	if v, ok := m["rancher_version"].(string); ok {
 		c.RancherVersion = v
@@ -44,13 +57,13 @@ func (c *RKE2Config) FromMap(m map[string]interface{}) {
 
 	// Apply defaults
 	if c.RKE2Version == "" {
-		c.RKE2Version = "v1.33.7+rke2r1"
+		c.RKE2Version = defaultVersion
 	}
 	if c.RancherVersion == "" {
-		c.RancherVersion = "2.10.2"
+		c.RancherVersion = defaultRancherVersion
 	}
 	if c.BootstrapPassword == "" {
-		c.BootstrapPassword = "admin"
+		c.BootstrapPassword = defaultBootstrapPassword
 	}
 	// Default to deploying Rancher if not explicitly set
 	if _, ok := m["deploy_rancher"]; !ok {
@@ -66,7 +79,7 @@ func GetRequiredFields() []core.FormField {
 			Label:       "RKE2 Version",
 			Description: "Version of RKE2 to install",
 			Required:    false,
-			Default:     "v1.33.7+rke2r1",
+			Default:     defaultVersion,
 			Type:        "string",
 		},
 		{
@@ -74,7 +87,7 @@ func GetRequiredFields() []core.FormField {
 			Label:       "Rancher Version",
 			Description: "Version of Rancher to deploy",
 			Required:    false,
-			Default:     "2.10.2",
+			Default:     defaultRancherVersion,
 			Type:        "string",
 		},
 		{
@@ -91,8 +104,8 @@ func GetRequiredFields() []core.FormField {
 // GetDefaultConfig returns default RKE2 configuration
 func GetDefaultConfig() map[string]interface{} {
 	return map[string]interface{}{
-		"rke2_version":    "v1.33.7+rke2r1",
-		"rancher_version": "2.10.2",
+		"rke2_version":    defaultVersion,
+		"rancher_version": defaultRancherVersion,
 		"deploy_rancher":  true,
 	}
 }

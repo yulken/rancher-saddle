@@ -1067,7 +1067,9 @@ func (m CreateFormModel) createCluster(name, provider, credential, distro, versi
 			Kubernetes: config.KubernetesSection{
 				Distribution: strings.ToLower(distro),
 				Config: map[string]interface{}{
-					"version": version,
+					// The orchestrators read their own key (rke2_version,
+					// k3s_version, ...), so store it under that name.
+					config.VersionKeyFor(distro): version,
 				},
 			},
 			SSH: config.SSHSection{

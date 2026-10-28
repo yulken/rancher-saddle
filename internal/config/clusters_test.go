@@ -293,3 +293,100 @@ func TestLoadClustersConfig_NonexistentFile(t *testing.T) {
 	assert.NotNil(t, cfg.Clusters)
 	assert.Empty(t, cfg.Clusters)
 }
+
+func TestVersionKeyFor(t *testing.T) {
+	cases := map[string]string{
+		"rke2":      "rke2_version",
+		"RKE2":      "rke2_version",
+		"k3s":       "k3s_version",
+		"K3s":       "k3s_version",
+		"harvester": "harvester_version",
+		"docker":    "version",
+		"":          "version",
+	}
+
+	for distribution, want := range cases {
+		assert.Equal(t, want, VersionKeyFor(distribution), "distribution %q", distribution)
+	}
+}
+
+// The create form used to store the Kubernetes version under "version", which
+// the orchestrators never read: deployments silently used their default.
+func TestClusterConfig_ToModernConfig_NormalizesLegacyVersionKey(t *testing.T) {
+	cc := &ClusterConfig{
+		Kubernetes: KubernetesSection{
+			Distribution: "rke2",
+			Config:       map[string]interface{}{"version": "v1.32.6+rke2r1"},
+		},
+	}
+
+	cfg := cc.ToModernConfig()
+
+	assert.Equal(t, "v1.32.6+rke2r1", cfg.OrchestratorConfig["rke2_version"])
+}
+
+func TestClusterConfig_ToModernConfig_KeepsCanonicalVersionKey(t *testing.T) {
+	cc := &ClusterConfig{
+		Kubernetes: KubernetesSection{
+			Distribution: "k3s",
+			Config: map[string]interface{}{
+				"k3s_version": "v1.32.6+k3s1",
+				"version":     "v1.35.0+k3s1",
+			},
+		},
+	}
+
+	cfg := cc.ToModernConfig()
+
+	assert.Equal(t, "v1.32.6+k3s1", cfg.OrchestratorConfig["k3s_version"])
+}
+
+func TestClusterConfig_ToModernConfig_DoesNotMutateKubernetesConfig(t *testing.T) {
+	original := map[string]interface{}{"version": "v1.32.6+rke2r1"}
+	cc := &ClusterConfig{
+		Kubernetes: KubernetesSection{Distribution: "rke2", Config: original},
+		Rancher:    RancherSection{Version: "2.11.14", Deploy: true},
+	}
+
+	cc.ToModernConfig()
+
+	assert.Equal(t, map[string]interface{}{"version": "v1.32.6+rke2r1"}, cc.Kubernetes.Config)
+}
+
+func TestFromModernConfig_KeepsRancherKeysOutOfKubernetesConfig(t *testing.T) {
+	cfg := &Config{
+		Provider:     "aws",
+		Orchestrator: "rke2",
+		OrchestratorConfig: map[string]interface{}{
+			"rke2_version":    "v1.32.6+rke2r1",
+			"rancher_version": "2.11.14",
+			"deploy_rancher":  true,
+			"rancher_prime":   true,
+		},
+	}
+
+	cc := FromModernConfig(cfg)
+
+	assert.Equal(t, "v1.32.6+rke2r1", cc.Kubernetes.Config["rke2_version"])
+	for _, key := range rancherConfigKeys {
+		assert.NotContains(t, cc.Kubernetes.Config, key)
+	}
+	assert.Equal(t, "2.11.14", cc.Rancher.Version)
+	assert.Equal(t, true, cc.Rancher.Deploy)
+	assert.Equal(t, true, cc.Rancher.Prime)
+}
+
+func TestClusterConfig_ModernConfigRoundTrip(t *testing.T) {
+	cc := &ClusterConfig{
+		Provider:   ProviderSection{Type: "aws"},
+		Kubernetes: KubernetesSection{Distribution: "rke2", Config: map[string]interface{}{"rke2_version": "v1.32.6+rke2r1"}},
+		Rancher:    RancherSection{Version: "2.11.14", Deploy: true},
+	}
+
+	back := FromModernConfig(cc.ToModernConfig())
+
+	assert.Equal(t, "rke2", back.Kubernetes.Distribution)
+	assert.Equal(t, "v1.32.6+rke2r1", back.Kubernetes.Config["rke2_version"])
+	assert.Equal(t, "2.11.14", back.Rancher.Version)
+	assert.Equal(t, true, back.Rancher.Deploy)
+}

@@ -18,13 +18,19 @@ type K3sConfig struct {
 	AddonTasks        string
 }
 
+const (
+	defaultVersion           = "v1.30.3+k3s1"
+	defaultRancherVersion    = "2.10.2"
+	defaultBootstrapPassword = "admin"
+)
+
 // NewDefaultK3sConfig returns a K3sConfig with sensible defaults
 func NewDefaultK3sConfig() *K3sConfig {
 	return &K3sConfig{
-		K3sVersion:        "v1.30.3+k3s1",
-		RancherVersion:    "2.10.2",
+		K3sVersion:        defaultVersion,
+		RancherVersion:    defaultRancherVersion,
 		DeployRancher:     true,
-		BootstrapPassword: "admin",
+		BootstrapPassword: defaultBootstrapPassword,
 	}
 }
 
@@ -34,13 +40,13 @@ func GetRequiredFields() []core.FormField {
 		{
 			Name:    "k3s_version",
 			Label:   "K3s Version",
-			Default: "v1.30.3+k3s1",
+			Default: defaultVersion,
 			Type:    "string",
 		},
 		{
 			Name:    "rancher_version",
 			Label:   "Rancher Version",
-			Default: "2.10.2",
+			Default: defaultRancherVersion,
 			Type:    "string",
 		},
 		{
@@ -57,6 +63,10 @@ func FromMap(configMap map[string]interface{}) *K3sConfig {
 	cfg := NewDefaultK3sConfig()
 
 	if v, ok := configMap["k3s_version"].(string); ok && v != "" {
+		cfg.K3sVersion = v
+	} else if v, ok := configMap["version"].(string); ok && v != "" {
+		// Older builds (and the create form before the fix) stored the
+		// Kubernetes version under the generic "version" key.
 		cfg.K3sVersion = v
 	}
 	if v, ok := configMap["rancher_version"].(string); ok && v != "" {
